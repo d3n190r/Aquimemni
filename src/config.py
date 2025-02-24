@@ -8,5 +8,5 @@ config_data['db_port'] = '5432'                 # The database port
 config_data['db_name'] = 'library'              # name of the database
 
 # Global API settings
-config_data['app_name'] = 'Acquimemni'    # name of the application
+config_data['app_name'] = 'Aquimemni'    # name of the application
 config_data['interface'] = ""                   # name of the current interface    
