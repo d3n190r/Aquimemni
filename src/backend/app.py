@@ -6,7 +6,7 @@ from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Laad de Config-klasse in uit config.py
-from config import Config
+from .config import Config
 
 # Maak de Flask-app
 app = Flask(__name__)
@@ -17,7 +17,7 @@ db = SQLAlchemy(app)
 Session(app)
 
 # Eventueel CORS inschakelen (voor React dev op localhost:3000)
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:3000"}})
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["http://team5.ua-ppdb.me", "http://35.205.63.30"]}})
 
 # Migrate voor database-migraties
 migrate = Migrate(app, db)

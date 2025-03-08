@@ -1,4 +1,4 @@
-from src.backend.app import app, db
+from backend.app import app, db
 
 if __name__ == "__main__":
     app.run()

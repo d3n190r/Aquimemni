@@ -9,7 +9,7 @@ function Home({ onLogout }) {
     // Bij laden van de component, haal een bericht op van de server (optioneel)
     const fetchMessage = async () => {
       try {
-        const resp = await fetch('http://localhost:5000/home', { credentials: 'include' });
+        const resp = await fetch('/api/home', { credentials: 'include' });
         if (resp.ok) {
           const data = await resp.json();
           setMessage(data.message || '');
@@ -25,7 +25,7 @@ function Home({ onLogout }) {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:5000/logout', { method: 'POST', credentials: 'include' });
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
     } catch (err) {
       console.error('Logout request failed', err);
     }

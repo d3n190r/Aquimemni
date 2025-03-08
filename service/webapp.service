@@ -14,11 +14,14 @@ User=app
 Group=www-data
 
 # We'll then map out the working directory and set the PATH environmental variable so that the init system knows where our the executables for the process are located (within our virtual environment).
-WorkingDirectory=/home/app/PPDB-Template/src
-Environment="PATH=/home/app/PPDB-Template/venv/bin"
+WorkingDirectory=/home/app/Aquimemni/src
+Environment="PATH=/home/app/Aquimemni/venv/bin"
 
 # We'll then specify the commanded to start the service
-ExecStart=/home/app/PPDB-Template/venv/bin/gunicorn --workers 3 --bind unix:webapp.sock -m 007 wsgi:app
+ExecStart=/home/app/Aquimemni/venv/bin/gunicorn wsgi:app --bind 127.0.0.1:5000 --workers 3
+
+# Herstartpolicy
+Restart=always
 
 # This will tell systemd what to link this service to if we enable it to start at boot. We want this service to start when the regular multi-user system is up and running:
 [Install]

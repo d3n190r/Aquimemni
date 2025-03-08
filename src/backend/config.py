@@ -13,7 +13,7 @@ class Config:
     # Database-config (PostgreSQL)
     # -------------------------------
     # Standaard: lokale Postgres; pas 'myuser', 'mypass', 'mydb' aan naar wat je in psql hebt ingesteld
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "postgresql://myuser:123456@localhost/mydb")
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "postgresql://app:123456@localhost/mydb")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # -------------------------------
