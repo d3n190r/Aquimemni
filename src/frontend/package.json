@@ -2,12 +2,9 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
-  "options": {
-    "allowedHosts": ["localhost", ".localhost"],
-    "proxy": "https://localhost:5000/"
-  },
   "dependencies": {
     "bootstrap": "^5.3.3",
+    "http-proxy-middleware": "^3.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.2.0",
