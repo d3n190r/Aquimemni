@@ -152,7 +152,7 @@ function Quiz({ onLogout }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const resp = await fetch('http://localhost:5000/home', {
+        const resp = await fetch('/api/home', {
           credentials: 'include'
         });
         if (!resp.ok) {
