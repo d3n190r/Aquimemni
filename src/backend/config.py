@@ -24,5 +24,5 @@ class Config:
 
     # Hieronder kun je SameSite / Secure-cookies instellen.
     # In development werkt het soms handiger om SameSite='None' & Secure=False te doen
-    SESSION_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE = False  # In productie op True zetten als je https gebruikt!
