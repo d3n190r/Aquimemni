@@ -1,0 +1,7 @@
+{
+    "_comment": "ABSOLUTE PATHS ONLY INCLUDING IN CLI",
+    "folder": "/home/manaci4466/Aquimemni/src/frontend/src/components",
+    "extensions": [".py", ".txt",".js", ".css"],
+    "ignored_dirs": [],
+    "output_file": "/home/manaci4466/Aquimemni/script/output.md"
+}
