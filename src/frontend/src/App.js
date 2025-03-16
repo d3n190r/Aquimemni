@@ -4,8 +4,11 @@
     import { Routes, Route, Navigate } from 'react-router-dom';
     import Signup from './components/Signup';
     import Login from './components/Login';
-    import Home from './components/Home';
-    import Quiz from './components/Quiz';
+    import Home from './components/Home components/Home';
+    import Quiz from './components/feature components/Quiz';
+    import Followers from './components/feature components/Followers'
+    import QuizMaker from './components/feature components/QuizMaker'
+    import Profile from './components/feature components/Profile'
 
     function App() {
       const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -37,6 +40,18 @@
           <Route
             path="/login"
             element={<Login onLogin={handleLogin} />}
+          />
+          <Route
+            path="/profile"
+            element={<Profile />}
+          />
+          <Route
+            path="/followers"
+            element={<Followers />}
+          />
+          <Route
+            path="/quiz-maker"
+            element={<QuizMaker />}
           />
           <Route
             path="/home"

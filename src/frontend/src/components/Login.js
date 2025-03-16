@@ -20,7 +20,7 @@ function Login({ onLogin }) {
       });
       if (response.ok) {
         onLogin && onLogin();
-        navigate('/quiz');
+        navigate('/home');
       } else {
         const data = await response.json();
         setError(data.error || 'Inloggen mislukt');
