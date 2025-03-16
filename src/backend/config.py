@@ -26,3 +26,11 @@ class Config:
     # In development werkt het soms handiger om SameSite='None' & Secure=False te doen
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE = False  # In productie op True zetten als je https gebruikt!
+
+class TestConfig(Config):
+    """
+    Deze configuratie gebruiken we speciaal tijdens tests.
+    We maken gebruik van een in-memory SQLite database.
+    """
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
