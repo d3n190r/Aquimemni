@@ -1,0 +1,64 @@
+/* Voeg dit toe aan je bestaande index.css */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.text-danger {
+  animation: pulse 1s infinite;
+}
+
+/* Quiz specifieke styling */
+.quiz-container {
+  max-width: 800px;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.option-button {
+  position: relative;
+  min-height: 80px;
+  white-space: normal;
+  transition: all 0.2s;
+}
+
+.option-button.active {
+  background: #0d6efd !important;
+  color: white !important;
+}
+
+.option-button.correct-answer {
+  background: #198754 !important;
+  color: white !important;
+}
+
+.correct-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  font-size: 1.5rem;
+}
+
+.timer-display {
+  font-family: monospace;
+}
+
+progress::-webkit-progress-value {
+  transition: width 0.5s linear;
+}
+
+/* Voeg toe aan CSS */
+.quiz-restart-enter {
+  opacity: 0;
+  transform: scale(0.9);
+}
+.quiz-restart-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: all 0.3s ease;
+}
