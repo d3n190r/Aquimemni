@@ -11,8 +11,8 @@ def client():
         with app.app_context():
             db.create_all()
         yield client
-        with app.app_context():
-            db.drop_all()
+        #with app.app_context():
+            #db.drop_all()
 
 
 def test_signup_success(client):
