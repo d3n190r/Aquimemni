@@ -1,72 +1,96 @@
-    // frontend/src/App.js
-    import React from 'react'
-    import { useState } from 'react';
-    import { Routes, Route, Navigate } from 'react-router-dom';
-    import Signup from './components/Signup';
-    import Login from './components/Login';
-    import Home from './components/Home components/Home';
-    import Quiz from './components/feature components/Quiz';
-    import Followers from './components/feature components/Followers'
-    import QuizMaker from './components/feature components/QuizMaker'
-    import Profile from './components/feature components/Profile'
+// frontend/src/App.js
+import React, { useState } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 
-    function App() {
-      const [isAuthenticated, setIsAuthenticated] = useState(false);
+// Import authenticatie componenten
+import Signup from './components/Signup';
+import Login from './components/Login';
 
-      // Callback functies om status te wijzigen
-      const handleLogin = () => setIsAuthenticated(true);
-      const handleLogout = () => {
-        setIsAuthenticated(false);
-        // Bij uitloggen omleiden naar login
-        // (We kunnen <Navigate> hieronder gebruiken in routes in plaats van hier.)
-      };
+// Import Home component (bevat header, main en sidebar)
+import Home from './components/Home components/Home';
 
-      return (
-        <Routes>
-          <Route
-            path="/quiz"
-            element={
-              isAuthenticated ? (
-                <Quiz onLogout={handleLogout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          <Route
-            path="/signup"
-            element={<Signup onSignup={() => {/* eventueel iets doen na signup */}} />}
-          />
-          <Route
-            path="/login"
-            element={<Login onLogin={handleLogin} />}
-          />
-          <Route
-            path="/profile"
-            element={<Profile />}
-          />
-          <Route
-            path="/followers"
-            element={<Followers />}
-          />
-          <Route
-            path="/quiz-maker"
-            element={<QuizMaker />}
-          />
-          <Route
-            path="/home"
-            element={
-              isAuthenticated ? (
-                <Home onLogout={handleLogout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          {/* Alle andere routes verwijzen we door naar login of signup */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      );
-    }
+// Import feature componenten voor de quiz functionaliteit
+import Quiz from './components/feature components/Quiz';
+import Followers from './components/feature components/Followers';
+import QuizMaker from './components/feature components/QuizMaker';
+import Profile from './components/feature components/Profile';
 
-    export default App;
+// Import MyQuizzes component (lijst met eigen quizzes)
+import MyQuizzes from './components/feature components/MyQuizzes';
+
+/**
+ * App Component
+ *
+ * Dit is het hoofdnavigatiepunt van de applicatie.
+ * Hier worden de routes gedefinieerd en wordt de authenticatiestatus beheerd.
+ */
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Callback functie die wordt aangeroepen bij succesvol inloggen
+  const handleLogin = () => setIsAuthenticated(true);
+
+  // Callback functie die wordt aangeroepen bij uitloggen
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    // Eventueel extra logica toevoegen bij uitloggen
+  };
+
+  return (
+    <Routes>
+      {/* Route voor de interactieve Quiz */}
+      <Route
+        path="/quiz"
+        element={
+          isAuthenticated ? (
+            <Quiz onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      {/* Route voor registratie */}
+      <Route
+        path="/signup"
+        element={<Signup onSignup={() => { /* eventueel na signup */ }} />}
+      />
+      {/* Route voor inloggen */}
+      <Route
+        path="/login"
+        element={<Login onLogin={handleLogin} />}
+      />
+      {/* Route voor gebruikersprofiel */}
+      <Route path="/profile" element={<Profile />} />
+      {/* Route voor volgers */}
+      <Route path="/followers" element={<Followers />} />
+      {/* Route voor Quiz Maker */}
+      <Route path="/quiz-maker" element={<QuizMaker />} />
+      {/* Route voor MyQuizzes (lijst met eigen quizzes) */}
+      <Route
+        path="/my-quizzes"
+        element={
+          isAuthenticated ? (
+            <MyQuizzes />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      {/* Route voor de Home pagina */}
+      <Route
+        path="/home"
+        element={
+          isAuthenticated ? (
+            <Home onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      {/* Alle andere routes leiden door naar login */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
+
+export default App;
