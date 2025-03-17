@@ -5,10 +5,8 @@ from flask import session
 from src.backend.app import app, db, User
 from src.backend.config import TestConfig
 
-
 @pytest.fixture
 def client():
-    app.config.from_object(TestConfig)
     with app.test_client() as client:
         with app.app_context():
             db.create_all()

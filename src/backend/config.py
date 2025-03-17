@@ -28,9 +28,5 @@ class Config:
     SESSION_COOKIE_SECURE = False  # In productie op True zetten als je https gebruikt!
 
 class TestConfig(Config):
-    """
-    Deze configuratie gebruiken we speciaal tijdens tests.
-    We maken gebruik van een in-memory SQLite database.
-    """
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SQLALCHEMY_DATABASE_URI = "postgresql://app:123456@localhost/mydb_test"
