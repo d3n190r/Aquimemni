@@ -1,4 +1,4 @@
-from .app import db
+from .init_flask import db
 from datetime import datetime
 
 """

@@ -1,31 +1,10 @@
 # src/backend/app.py
-
-from flask import Flask, request, jsonify, session
-from flask_sqlalchemy import SQLAlchemy
-from flask_session.__init__ import Session
-from flask_cors import CORS
-from flask_migrate import Migrate
+from flask import request, jsonify, session
+from .init_flask import db, migrate, app
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from .Questions import (Question, TextInputQuestion, MultipleChoiceOption, SliderQuestion, MultipleChoiceQuestion)
 
-# Laad de configuratieklasse vanuit config.py
-from .config import Config
-
-# Maak de Flask-app aan en laad de configuratie
-app = Flask(__name__)
-app.config.from_object(Config)
-
-# Initialiseer de database met SQLAlchemy en stel sessies in via Flask-Session
-db = SQLAlchemy(app)
-Session(app)
-
-# Schakel CORS in zodat de React front-end API calls kan maken naar deze server
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["http://team5.ua-ppdb.me", "http://35.205.63.30"]}})
-
-# Initialiseer Flask-Migrate voor het beheer van database migraties
-migrate = Migrate(app, db)
-
-# ------------------------------
 # DATABASE MODELLEN
 # ------------------------------
 
@@ -57,8 +36,9 @@ class Quiz(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     name = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    questions = db.relationship('Question', backref='quiz', lazy=True)    
+    user = db.relationship("User", backref="quizzes", lazy=True)
     # Optioneel: als je een relatie naar de User wilt, kun je dit activeren:
-    # user = db.relationship("User", backref="quizzes", lazy=True)
 
 
 # ------------------------------
@@ -143,34 +123,6 @@ def logout():
     session.clear()
     return jsonify({"message": "Uitgelogd"}), 200
 
-
-@app.route('/quiz', methods=['POST'])
-def create_quiz():
-    """
-    Endpoint: /quiz [POST]
-    Maakt een nieuwe quiz aan.
-    Verwacht een JSON payload met 'name' (de quiznaam).
-    De quiz wordt gekoppeld aan de ingelogde gebruiker.
-    """
-    if 'user_id' not in session:
-        return jsonify({"error": "Niet ingelogd"}), 401
-
-    data = request.get_json() or {}
-    quiz_name = data.get('name')
-
-    if not quiz_name:
-        return jsonify({"error": "Quiz-naam is verplicht"}), 400
-
-    new_quiz = Quiz(
-        user_id=session['user_id'],
-        name=quiz_name
-    )
-    db.session.add(new_quiz)
-    db.session.commit()
-
-    return jsonify({"message": "Quiz aangemaakt", "quiz_id": new_quiz.id}), 201
-
-
 @app.route('/quizzes', methods=['GET'])
 def get_user_quizzes():
     """
@@ -183,17 +135,172 @@ def get_user_quizzes():
 
     user_id = session['user_id']
     quizzes = Quiz.query.filter_by(user_id=user_id).all()
+    quizzes_data = list()
+    
+    for quiz in quizzes:
+        global_questions=list()
+        for question in quiz.questions:
+            q_data = {
+                "id": question.id,
+                "type": question.question_type,
+                "text": question.question_text
+            }
+            
+            if question.question_type == 'multiple_choice':
+                q_data['options'] = [{
+                    "id": opt.id,
+                    "text": opt.text,
+                    "is_correct": opt.is_correct
+                } for opt in question.options]
+            elif question.question_type == 'slider':
+                q_data.update({
+                    "min": question.min_value,
+                    "max": question.max_value,
+                    "step": question.step
+                })
+            elif question.question_type == 'text_input':
+                q_data['max_length'] = question.max_length
+            
+            global_questions.append(q_data)
+            
+        quizzes_data.append({
+            "id": quiz.id,
+            "name": quiz.name,
+            "created_at": quiz.created_at.isoformat(),
+            "questions": global_questions,
+        })
 
-    quizzes_data = [
-        {
-            "id": q.id,
-            "name": q.name,
-            "created_at": q.created_at.isoformat()
-        }
-        for q in quizzes
-    ]
     return jsonify(quizzes_data), 200
 
+# @app.route('/quiz', methods=['POST'])
+# def create_quiz():
+#     """
+#     Endpoint: /quiz [POST]
+#     Maakt een nieuwe quiz aan.
+#     Verwacht een JSON payload met 'name' (de quiznaam).
+#     De quiz wordt gekoppeld aan de ingelogde gebruiker.
+#     """
+#     if 'user_id' not in session:
+#         return jsonify({"error": "Niet ingelogd"}), 401
+
+#     data = request.get_json() or {}
+#     quiz_name = data.get('name')
+
+#     if not quiz_name:
+#         return jsonify({"error": "Quiz-naam is verplicht"}), 400
+
+#     new_quiz = Quiz(
+#         user_id=session['user_id'],
+#         name=quiz_name
+#     )
+#     db.session.add(new_quiz)
+#     db.session.commit()
+
+#     return jsonify({"message": "Quiz aangemaakt", "quiz_id": new_quiz.id}), 201
+
+@app.route('/quiz', methods=['POST'])
+def create_quiz():
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    data = request.get_json()
+    if not data or 'name' not in data:
+        return jsonify({"error": "Quiz name required"}), 400
+
+    try:
+        # Create quiz
+        questions = list()
+        new_quiz = Quiz(
+            user_id=session['user_id'],
+            name=data['name']
+        )
+
+        db.session.add(new_quiz)
+        db.session.flush()  # Get the quiz ID
+
+        # Process questions
+        for q_data in data.get('questions', []):
+            question = None
+            if q_data['type'] == 'text_input':
+                question = TextInputQuestion(
+                    quiz_id=new_quiz.id,
+                    quiz=new_quiz,
+                    question_text=q_data['text'],
+                    max_length=q_data.get('max_length', 255)
+                )
+                db.session.add(question)
+                
+            elif q_data['type'] == 'multiple_choice':
+                question = MultipleChoiceQuestion(
+                    quiz=new_quiz,
+                    quiz_id=new_quiz.id,
+                    question_text=q_data['text']
+                )
+                db.session.add(question)
+                db.session.flush()  # Get question ID for options
+                
+                for opt in q_data.get('options', []):
+                    option = MultipleChoiceOption(
+                        question=question,
+                        question_id=question.id,
+                        text=opt['text'],
+                        is_correct=opt.get('isCorrect', False)
+                    )
+                    db.session.add(option)
+                    
+            elif q_data['type'] == 'slider':
+                question = SliderQuestion(
+                    quiz=new_quiz,
+                    quiz_id=new_quiz.id,
+                    question_text=q_data['text'],
+                    min_value=q_data.get('min', 0),
+                    max_value=q_data.get('max', 10),
+                    step=q_data.get('step', 1)
+                )
+                db.session.add(question)
+
+        db.session.commit()
+        return jsonify({"message": "Quiz created", "quiz_id": new_quiz.id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/quizzes/<int:quiz_id>', methods=['GET'])
+def get_quiz(quiz_id):
+    quiz = Quiz.query.get_or_404(quiz_id)
+    questions = []
+
+    for question in quiz.questions:
+        q_data = {
+            "id": question.id,
+            "type": question.question_type,
+            "text": question.question_text
+        }
+        
+        if question.question_type == 'multiple_choice':
+            q_data['options'] = [{
+                "id": opt.id,
+                "text": opt.text,
+                "is_correct": opt.is_correct
+            } for opt in question.options]
+        elif question.question_type == 'slider':
+            q_data.update({
+                "min": question.min_value,
+                "max": question.max_value,
+                "step": question.step
+            })
+        elif question.question_type == 'text_input':
+            q_data['max_length'] = question.max_length
+        
+        questions.append(q_data)
+    
+    return jsonify({
+        "id": quiz.id,
+        "name": quiz.name,
+        "created_at": quiz.created_at.isoformat(),
+        "questions": questions
+    })
 
 # ------------------------------
 # Applicatie starten
@@ -202,4 +309,6 @@ if __name__ == '__main__':
     with app.app_context():
         # Zorgt dat alle tabellen worden aangemaakt als ze nog niet bestaan
         db.create_all()
+        db.session.commit()  # Add this line
+        db.configure_mappers()
     app.run(debug=True)

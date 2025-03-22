@@ -1,22 +1,15 @@
 // frontend/src/components/feature components/MyQuizzes.jsx
 import React, { useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'react-bootstrap-icons';
+import { Link, useNavigate } from 'react-router-dom';
 
-/**
- * MyQuizzes Component
- *
- * Deze component haalt de lijst van quizzes op die behoren tot de ingelogde gebruiker
- * en geeft deze weer. Als er een fout optreedt of er geen quizzes beschikbaar zijn,
- * wordt er een passende melding getoond.
- */
 function MyQuizzes() {
-  const [quizzes, setQuizzes] = useState([]); // State voor de opgehaalde quizzes
-  const [error, setError] = useState(''); // State voor foutmeldingen
+  const [quizzes, setQuizzes] = useState([]);
+  const [error, setError] = useState('');
+  const [expandedQuizId, setExpandedQuizId] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    /**
-     * fetchQuizzes haalt de quizzes op door een API call naar de backend.
-     * Bij een succesvolle response worden de data opgeslagen, anders wordt een foutmelding ingesteld.
-     */
     const fetchQuizzes = async () => {
       try {
         const response = await fetch('/api/quizzes', {
@@ -29,34 +22,146 @@ function MyQuizzes() {
         }
         const data = await response.json();
         setQuizzes(data);
+        return data;
       } catch (err) {
         setError('Er trad een netwerkfout op bij het laden van quizzes');
         console.error(err);
       }
     };
 
-    fetchQuizzes();
-  }, []); // Lege dependency array: voer dit alleen bij mount uit
+   fetchQuizzes();
+  }, []);
 
-  // Als er een fout is, wordt deze getoond
+  const toggleQuizDetails = (quizId) => {
+    setExpandedQuizId(expandedQuizId === quizId ? null : quizId);
+  };
+
+  const formatDate = (dateString) => {
+    const options = { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+    return new Date(dateString).toLocaleDateString('nl-NL', options);
+  };
+
+  // Fix the toggle button rendering
+  const renderToggleButton = (quizId) => (
+    <button 
+      className="btn btn-link"
+      onClick={() => setExpandedQuizId(prev => prev === quizId ? null : quizId)}
+    >
+      {expandedQuizId === quizId ? '▲' : '▼'}
+    </button>
+  );
+
+  // Fix the question type counting
+  const countQuestionTypes = (questions) => {
+    const counts = { text: 0, multiple: 0, slider: 0 };
+    questions.forEach(q => {
+      if (q.type === 'text_input') counts.text++;
+      if (q.type === 'multiple_choice') counts.multiple++;
+      if (q.type === 'slider') counts.slider++;
+    });
+    return counts;
+  };
+
   if (error) {
     return <div className="container mt-4 alert alert-danger">{error}</div>;
   }
 
-  // Render de lijst van quizzes of een bericht als er geen quizzes zijn
   return (
     <div className="container mt-4">
+      <Link to="/home" className="btn btn-outline-secondary mb-4">
+        ← Back to Home
+      </Link>
       <h2>My Quizzes</h2>
       {quizzes.length === 0 ? (
         <p>Je hebt nog geen quiz gemaakt.</p>
       ) : (
-        <ul className="list-group">
+        <div className="accordion">
           {quizzes.map(quiz => (
-            <li key={quiz.id} className="list-group-item">
-              {quiz.name} - aangemaakt op {new Date(quiz.created_at).toLocaleString()}
-            </li>
+            <div key={quiz.id} className="card mb-3">
+              <div className="card-header d-flex justify-content-between align-items-center">
+                <div>
+                  <h5 className="mb-0">{quiz.name}</h5>
+                  <small className="text-muted">
+                    Aangemaakt op {formatDate(quiz.created_at)}
+                  </small>
+                </div>
+                {renderToggleButton(quiz.id)}
+              </div>
+              
+              {expandedQuizId === quiz.id && (
+                <div className="card-body">
+                    <div className="mb-4">
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => navigate(`/simulate/${quiz.id}`, { state: { quiz } })}
+                      >
+                        Simulate This Quiz
+                      </button>
+                    </div>
+                    <div className="mb-3">
+                    <h6>Overzicht:</h6>
+                    <ul className="list-unstyled">
+                      <li>Totaal vragen: {quiz.questions.length}</li>
+                      <li>Totaal antwoorden: {
+                        quiz.questions.reduce((acc, q) => acc + (q.answers?.length || 0), 0)
+                      }</li>
+                      <li>Vraagtypes: {Object.entries(countQuestionTypes(quiz.questions))
+                        .map(([type, count]) => `${count} ${type}`)
+                        .join(', ')}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <h6>Vragen:</h6>
+                  {quiz.questions?.map((question, qIndex) => (
+                    <div key={qIndex} className="mb-3 p-2 border rounded">
+                      <div className="d-flex justify-content-between">
+                        <strong>Vraag {qIndex + 1}</strong>
+                        <span className="badge bg-secondary">
+                          {question.type.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p className="mb-1">{question.text}</p>
+                      
+                      {question.type === 'text_input' && (
+                        <small className="text-muted">
+                          Max. lengte: {question.max_length}
+                        </small>
+                      )}
+                      
+                      {question.type === 'slider' && (
+                        <small className="text-muted">
+                          Bereik: {question.min}-{question.max} (stap: {question.step})
+                        </small>
+                      )}
+                      
+                      {question.type === 'multiple_choice' && (
+                        <div className="mt-2">
+                          <small>Opties:</small>
+                          <ul className="list-unstyled">
+                            {question.options?.map((option, oIndex) => (
+                              <li key={oIndex} className="ms-2">
+                                {option.text}
+                                {option.is_correct && 
+                                  <span className="ms-2 text-success">✓</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

@@ -17,6 +17,7 @@ import Profile from './components/feature components/Profile';
 
 // Import MyQuizzes component (lijst met eigen quizzes)
 import MyQuizzes from './components/feature components/MyQuizzes';
+import QuizSimulator from './components/feature components/QuizSimulator';
 
 /**
  * App Component
@@ -38,6 +39,11 @@ function App() {
 
   return (
     <Routes>
+      {/* Route voor de interactieve Quiz */}
+      <Route 
+        path="/simulate/:quizId" 
+        element={<QuizSimulator />} 
+      />
       {/* Route voor de interactieve Quiz */}
       <Route
         path="/quiz"
