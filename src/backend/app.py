@@ -15,11 +15,17 @@ class User(db.Model):
     - id: Primaire sleutel
     - username: Unieke gebruikersnaam
     - password_hash: Gehashte wachtwoord
+    - avatar: gekozen avatar 
     """
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    bio = db.Column(db.Text)  
+    avatar = db.Column(db.Integer)
+    registered_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
 
 
 class Quiz(db.Model):
@@ -301,6 +307,43 @@ def get_quiz(quiz_id):
         "created_at": quiz.created_at.isoformat(),
         "questions": questions
     })
+
+@app.route('/profile', methods=['GET', 'POST'])
+def handle_profile():
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+    
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if request.method == 'GET':
+        return jsonify({
+            "username": user.username,
+            "bio": user.bio,
+            "avatar": user.avatar,
+            "registered_at": user.registered_at.isoformat() if user.registered_at else "miauw"
+        }), 200
+
+    if request.method == 'POST':
+        data = request.get_json()
+        
+        if 'username' in data:
+            new_username = data['username'].strip()
+            if new_username != user.username:
+                existing_user = User.query.filter_by(username=new_username).first()
+                if existing_user:
+                    return jsonify({"error": "Username already taken"}), 409
+                user.username = new_username
+                session['username'] = new_username  
+
+        if 'bio' in data:
+            user.bio = data['bio']
+        if 'avatar' in data and 1 <= data['avatar'] <= 12:
+            user.avatar = data['avatar']
+        
+        db.session.commit()
+        return jsonify({"message": "Profile updated"}), 200
 
 # ------------------------------
 # Applicatie starten
