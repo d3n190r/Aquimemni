@@ -1,9 +1,17 @@
 # src/backend/app.py
-from flask import request, jsonify, session
-from .init_flask import db, migrate, app
+from flask import Blueprint, request, jsonify, session
+from .init_flask import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from .Questions import (Question, TextInputQuestion, MultipleChoiceOption, SliderQuestion, MultipleChoiceQuestion)
+main_bp = Blueprint('main', __name__)
+
+from .Questions import (
+    Question,
+    TextInputQuestion,
+    MultipleChoiceOption,
+    SliderQuestion,
+    MultipleChoiceQuestion
+)
 
 # DATABASE MODELLEN
 # ------------------------------
@@ -24,9 +32,6 @@ class User(db.Model):
     bio = db.Column(db.Text)  
     avatar = db.Column(db.Integer)
     registered_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-
-
 
 class Quiz(db.Model):
     """
@@ -51,7 +56,7 @@ class Quiz(db.Model):
 # ROUTES / ENDPOINTS
 # ------------------------------
 
-@app.route('/signup', methods=['POST'])
+@main_bp.route('/signup', methods=['POST'])
 def signup():
     """
     Endpoint: /signup [POST]
@@ -78,7 +83,7 @@ def signup():
     return jsonify({"message": f"Gebruiker {username} geregistreerd"}), 201
 
 
-@app.route('/login', methods=['POST'])
+@main_bp.route('/login', methods=['POST'])
 def login():
     """
     Endpoint: /login [POST]
@@ -106,7 +111,7 @@ def login():
     return jsonify({"message": f"Ingelogd als {user.username}"}), 200
 
 
-@app.route('/home', methods=['GET'])
+@main_bp.route('/home', methods=['GET'])
 def home():
     """
     Endpoint: /home [GET]
@@ -120,7 +125,7 @@ def home():
     return jsonify({"message": f"Welkom, {username}! Dit is een beschermde pagina."}), 200
 
 
-@app.route('/logout', methods=['POST'])
+@main_bp.route('/logout', methods=['POST'])
 def logout():
     """
     Endpoint: /logout [POST]
@@ -129,7 +134,7 @@ def logout():
     session.clear()
     return jsonify({"message": "Uitgelogd"}), 200
 
-@app.route('/quizzes', methods=['GET'])
+@main_bp.route('/quizzes', methods=['GET'])
 def get_user_quizzes():
     """
     Endpoint: /quizzes [GET]
@@ -204,7 +209,7 @@ def get_user_quizzes():
 
 #     return jsonify({"message": "Quiz aangemaakt", "quiz_id": new_quiz.id}), 201
 
-@app.route('/quiz', methods=['POST'])
+@main_bp.route('/quiz', methods=['POST'])
 def create_quiz():
     if 'user_id' not in session:
         return jsonify({"error": "Not logged in"}), 401
@@ -272,7 +277,7 @@ def create_quiz():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-@app.route('/quizzes/<int:quiz_id>', methods=['GET'])
+@main_bp.route('/quizzes/<int:quiz_id>', methods=['GET'])
 def get_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
     questions = []
@@ -308,7 +313,7 @@ def get_quiz(quiz_id):
         "questions": questions
     })
 
-@app.route('/profile', methods=['GET', 'POST'])
+@main_bp.route('/profile', methods=['GET', 'POST'])
 def handle_profile():
     if 'user_id' not in session:
         return jsonify({"error": "Not logged in"}), 401
@@ -348,10 +353,15 @@ def handle_profile():
 # ------------------------------
 # Applicatie starten
 # ------------------------------
+
+def create_app():
+    from .init_flask import create_app as flask_create_app
+    app = flask_create_app()
+    return app
+
+
+# Voor development run
+
 if __name__ == '__main__':
-    with app.app_context():
-        # Zorgt dat alle tabellen worden aangemaakt als ze nog niet bestaan
-        db.create_all()
-        db.session.commit()  # Add this line
-        db.configure_mappers()
+    app = create_app()
     app.run(debug=True)
