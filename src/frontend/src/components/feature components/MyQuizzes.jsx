@@ -29,7 +29,7 @@ function MyQuizzes() {
       }
     };
 
-   fetchQuizzes();
+    fetchQuizzes();
   }, []);
 
   const toggleQuizDetails = (quizId) => {
@@ -37,9 +37,9 @@ function MyQuizzes() {
   };
 
   const formatDate = (dateString) => {
-    const options = { 
-      year: 'numeric', 
-      month: 'long', 
+    const options = {
+      year: 'numeric',
+      month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -47,9 +47,9 @@ function MyQuizzes() {
     return new Date(dateString).toLocaleDateString('nl-NL', options);
   };
 
-  // Fix the toggle button rendering
+  // Toggle button for showing/hiding quiz details
   const renderToggleButton = (quizId) => (
-    <button 
+    <button
       className="btn btn-link"
       onClick={() => setExpandedQuizId(prev => prev === quizId ? null : quizId)}
     >
@@ -57,7 +57,7 @@ function MyQuizzes() {
     </button>
   );
 
-  // Fix the question type counting
+  // Count question types (text_input, multiple_choice, slider)
   const countQuestionTypes = (questions) => {
     const counts = { text: 0, multiple: 0, slider: 0 };
     questions.forEach(q => {
@@ -93,18 +93,18 @@ function MyQuizzes() {
                 </div>
                 {renderToggleButton(quiz.id)}
               </div>
-              
+
               {expandedQuizId === quiz.id && (
                 <div className="card-body">
-                    <div className="mb-4">
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => navigate(`/simulate/${quiz.id}`, { state: { quiz } })}
-                      >
-                        Simulate This Quiz
-                      </button>
-                    </div>
-                    <div className="mb-3">
+                  <div className="mb-4">
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => navigate(`/simulate/${quiz.id}`, { state: { quiz } })}
+                    >
+                      Simulate This Quiz
+                    </button>
+                  </div>
+                  <div className="mb-3">
                     <h6>Overzicht:</h6>
                     <ul className="list-unstyled">
                       <li>Totaal vragen: {quiz.questions.length}</li>
@@ -128,19 +128,31 @@ function MyQuizzes() {
                         </span>
                       </div>
                       <p className="mb-1">{question.text}</p>
-                      
+
                       {question.type === 'text_input' && (
-                        <small className="text-muted">
-                          Max. lengte: {question.max_length}
-                        </small>
+                        <div>
+                          <small className="text-muted">
+                            Max. lengte: {question.max_length}
+                          </small>
+                          <br />
+                          <small className="text-muted">
+                            Correct Answer: {question.correct_answer}
+                          </small>
+                        </div>
                       )}
-                      
+
                       {question.type === 'slider' && (
-                        <small className="text-muted">
-                          Bereik: {question.min}-{question.max} (stap: {question.step})
-                        </small>
+                        <div>
+                          <small className="text-muted">
+                            Bereik: {question.min}-{question.max} (stap: {question.step})
+                          </small>
+                          <br />
+                          <small className="text-muted">
+                            Correct Value: {question.correct_value}
+                          </small>
+                        </div>
                       )}
-                      
+
                       {question.type === 'multiple_choice' && (
                         <div className="mt-2">
                           <small>Opties:</small>
@@ -148,7 +160,7 @@ function MyQuizzes() {
                             {question.options?.map((option, oIndex) => (
                               <li key={oIndex} className="ms-2">
                                 {option.text}
-                                {option.is_correct && 
+                                {option.is_correct &&
                                   <span className="ms-2 text-success">✓</span>}
                               </li>
                             ))}

@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, session
 from .init_flask import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+
 main_bp = Blueprint('main', __name__)
 
 from .Questions import (
@@ -12,6 +13,7 @@ from .Questions import (
     SliderQuestion,
     MultipleChoiceQuestion
 )
+
 
 # DATABASE MODELLEN
 # ------------------------------
@@ -29,9 +31,10 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    bio = db.Column(db.Text)  
+    bio = db.Column(db.Text)
     avatar = db.Column(db.Integer)
     registered_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
 
 class Quiz(db.Model):
     """
@@ -47,7 +50,7 @@ class Quiz(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     name = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    questions = db.relationship('Question', backref='quiz', lazy=True)    
+    questions = db.relationship('Question', backref='quiz', lazy=True)
     user = db.relationship("User", backref="quizzes", lazy=True)
     # Optioneel: als je een relatie naar de User wilt, kun je dit activeren:
 
@@ -134,29 +137,28 @@ def logout():
     session.clear()
     return jsonify({"message": "Uitgelogd"}), 200
 
+
 @main_bp.route('/quizzes', methods=['GET'])
 def get_user_quizzes():
     """
-    Endpoint: /quizzes [GET]
     Haalt alle quizzes op die horen bij de ingelogde gebruiker.
-    Retourneert een JSON-array met quizgegevens (id, name, created_at).
     """
     if 'user_id' not in session:
         return jsonify({"error": "Niet ingelogd"}), 401
 
     user_id = session['user_id']
     quizzes = Quiz.query.filter_by(user_id=user_id).all()
-    quizzes_data = list()
-    
+    quizzes_data = []
+
     for quiz in quizzes:
-        global_questions=list()
+        global_questions = []
         for question in quiz.questions:
             q_data = {
                 "id": question.id,
                 "type": question.question_type,
                 "text": question.question_text
             }
-            
+
             if question.question_type == 'multiple_choice':
                 q_data['options'] = [{
                     "id": opt.id,
@@ -167,13 +169,17 @@ def get_user_quizzes():
                 q_data.update({
                     "min": question.min_value,
                     "max": question.max_value,
-                    "step": question.step
+                    "step": question.step,
+                    "correct_value": question.correct_value  # Toegevoegd
                 })
             elif question.question_type == 'text_input':
-                q_data['max_length'] = question.max_length
-            
+                q_data.update({
+                    "max_length": question.max_length,
+                    "correct_answer": question.correct_answer  # Toegevoegd
+                })
+
             global_questions.append(q_data)
-            
+
         quizzes_data.append({
             "id": quiz.id,
             "name": quiz.name,
@@ -182,6 +188,7 @@ def get_user_quizzes():
         })
 
     return jsonify(quizzes_data), 200
+
 
 # @app.route('/quiz', methods=['POST'])
 # def create_quiz():
@@ -237,10 +244,11 @@ def create_quiz():
                     quiz_id=new_quiz.id,
                     quiz=new_quiz,
                     question_text=q_data['text'],
-                    max_length=q_data.get('max_length', 255)
+                    max_length=q_data.get('max_length', 255),
+                    correct_answer=q_data.get('correct_answer')
                 )
                 db.session.add(question)
-                
+
             elif q_data['type'] == 'multiple_choice':
                 question = MultipleChoiceQuestion(
                     quiz=new_quiz,
@@ -249,7 +257,7 @@ def create_quiz():
                 )
                 db.session.add(question)
                 db.session.flush()  # Get question ID for options
-                
+
                 for opt in q_data.get('options', []):
                     option = MultipleChoiceOption(
                         question=question,
@@ -258,7 +266,7 @@ def create_quiz():
                         is_correct=opt.get('isCorrect', False)
                     )
                     db.session.add(option)
-                    
+
             elif q_data['type'] == 'slider':
                 question = SliderQuestion(
                     quiz=new_quiz,
@@ -266,7 +274,8 @@ def create_quiz():
                     question_text=q_data['text'],
                     min_value=q_data.get('min', 0),
                     max_value=q_data.get('max', 10),
-                    step=q_data.get('step', 1)
+                    step=q_data.get('step', 1),
+                    correct_value=q_data.get('correct_value')
                 )
                 db.session.add(question)
 
@@ -277,8 +286,12 @@ def create_quiz():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+
 @main_bp.route('/quizzes/<int:quiz_id>', methods=['GET'])
 def get_quiz(quiz_id):
+    """
+    Haalt een enkele quiz op met alle vragen.
+    """
     quiz = Quiz.query.get_or_404(quiz_id)
     questions = []
 
@@ -288,7 +301,7 @@ def get_quiz(quiz_id):
             "type": question.question_type,
             "text": question.question_text
         }
-        
+
         if question.question_type == 'multiple_choice':
             q_data['options'] = [{
                 "id": opt.id,
@@ -299,13 +312,17 @@ def get_quiz(quiz_id):
             q_data.update({
                 "min": question.min_value,
                 "max": question.max_value,
-                "step": question.step
+                "step": question.step,
+                "correct_value": question.correct_value
             })
         elif question.question_type == 'text_input':
-            q_data['max_length'] = question.max_length
-        
+            q_data.update({
+                "max_length": question.max_length,
+                "correct_answer": question.correct_answer
+            })
+
         questions.append(q_data)
-    
+
     return jsonify({
         "id": quiz.id,
         "name": quiz.name,
@@ -313,11 +330,12 @@ def get_quiz(quiz_id):
         "questions": questions
     })
 
+
 @main_bp.route('/profile', methods=['GET', 'POST'])
 def handle_profile():
     if 'user_id' not in session:
         return jsonify({"error": "Not logged in"}), 401
-    
+
     user = User.query.get(session['user_id'])
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -332,7 +350,7 @@ def handle_profile():
 
     if request.method == 'POST':
         data = request.get_json()
-        
+
         if 'username' in data:
             new_username = data['username'].strip()
             if new_username != user.username:
@@ -340,15 +358,16 @@ def handle_profile():
                 if existing_user:
                     return jsonify({"error": "Username already taken"}), 409
                 user.username = new_username
-                session['username'] = new_username  
+                session['username'] = new_username
 
         if 'bio' in data:
             user.bio = data['bio']
         if 'avatar' in data and 1 <= data['avatar'] <= 12:
             user.avatar = data['avatar']
-        
+
         db.session.commit()
         return jsonify({"message": "Profile updated"}), 200
+
 
 # ------------------------------
 # Applicatie starten

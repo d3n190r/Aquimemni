@@ -1,3 +1,4 @@
+// frontend/src/components/feature components/QuizMaker.jsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -7,13 +8,16 @@ function QuizMaker() {
   const [feedback, setFeedback] = useState('');
 
   const addQuestion = (type) => {
-    setQuestions([...questions, {
-      type,
-      text: '',
-      ...(type === 'multiple_choice' && { options: [{ text: '', isCorrect: false }] }),
-      ...(type === 'slider' && { min: 0, max: 10, step: 1 }),
-      ...(type === 'text_input' && { max_length: 255 })
-    }]);
+    setQuestions([
+      ...questions,
+      {
+        type,
+        text: '',
+        ...(type === 'multiple_choice' && { options: [{ text: '', isCorrect: false }] }),
+        ...(type === 'slider' && { min: 0, max: 10, step: 1, correct_value: null }),
+        ...(type === 'text_input' && { max_length: 255, correct_answer: '' }),
+      },
+    ]);
   };
 
   const deleteQuestion = (index) => {
@@ -59,19 +63,19 @@ function QuizMaker() {
         credentials: 'include',
         body: JSON.stringify({
           name: quizName,
-          questions: questions.map(q => ({
+          questions: questions.map((q) => ({
             type: q.type,
             text: q.text,
             ...(q.type === 'multiple_choice' && { options: q.options }),
-            ...(q.type === 'slider' && { min: q.min, max: q.max, step: q.step }),
-            ...(q.type === 'text_input' && { max_length: q.max_length })
-          }))
-        })
+            ...(q.type === 'slider' && { min: q.min, max: q.max, step: q.step, correct_value: q.correct_value }),
+            ...(q.type === 'text_input' && { max_length: q.max_length, correct_answer: q.correct_answer }),
+          })),
+        }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Quiz creation failed');
-      
+
       setFeedback(`Succes! Quiz ID: ${data.quiz_id}`);
       setQuizName('');
       setQuestions([]);
@@ -83,9 +87,9 @@ function QuizMaker() {
 
   return (
     <div className="container mt-4">
-        <Link to="/home" className="btn btn-outline-secondary mb-4">
-          ← Back to Home
-        </Link>
+      <Link to="/home" className="btn btn-outline-secondary mb-4">
+        ← Back to Home
+      </Link>
       <h2>Create New Quiz</h2>
       {feedback && <div className="alert alert-info">{feedback}</div>}
 
@@ -95,7 +99,7 @@ function QuizMaker() {
           type="text"
           className="form-control"
           value={quizName}
-          onChange={e => setQuizName(e.target.value)}
+          onChange={(e) => setQuizName(e.target.value)}
         />
       </div>
 
@@ -103,10 +107,7 @@ function QuizMaker() {
         <div key={qIndex} className="card mb-3">
           <div className="card-header d-flex justify-content-between align-items-center">
             <span>Question {qIndex + 1}</span>
-            <button 
-              className="btn btn-danger btn-sm"
-              onClick={() => deleteQuestion(qIndex)}
-            >
+            <button className="btn btn-danger btn-sm" onClick={() => deleteQuestion(qIndex)}>
               Delete Question
             </button>
           </div>
@@ -114,7 +115,7 @@ function QuizMaker() {
             <select
               className="form-select mb-3"
               value={q.type}
-              onChange={e => updateQuestion(qIndex, 'type', e.target.value)}
+              onChange={(e) => updateQuestion(qIndex, 'type', e.target.value)}
             >
               <option value="text_input">Text Input</option>
               <option value="multiple_choice">Multiple Choice</option>
@@ -125,51 +126,75 @@ function QuizMaker() {
               className="form-control mb-3"
               placeholder="Question Text"
               value={q.text}
-              onChange={e => updateQuestion(qIndex, 'text', e.target.value)}
+              onChange={(e) => updateQuestion(qIndex, 'text', e.target.value)}
             />
 
             {q.type === 'text_input' && (
-              <div className="mb-3">
-                <label>Max Length</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={q.max_length}
-                  onChange={e => updateQuestion(qIndex, 'max_length', parseInt(e.target.value))}
-                />
-              </div>
+              <>
+                <div className="mb-3">
+                  <label>Max Length</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={q.max_length}
+                    onChange={(e) => updateQuestion(qIndex, 'max_length', parseInt(e.target.value))}
+                  />
+                </div>
+                <div className="mb-3">
+                  <label>Correct Answer</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={q.correct_answer}
+                    onChange={(e) => updateQuestion(qIndex, 'correct_answer', e.target.value)}
+                  />
+                </div>
+              </>
             )}
 
             {q.type === 'slider' && (
-              <div className="row g-3 mb-3">
-                <div className="col">
-                  <label>Min Value</label>
+              <>
+                <div className="row g-3 mb-3">
+                  <div className="col">
+                    <label>Min Value</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={q.min}
+                      onChange={(e) => updateQuestion(qIndex, 'min', parseInt(e.target.value))}
+                    />
+                  </div>
+                  <div className="col">
+                    <label>Max Value</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={q.max}
+                      onChange={(e) => updateQuestion(qIndex, 'max', parseInt(e.target.value))}
+                    />
+                  </div>
+                  <div className="col">
+                    <label>Step</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={q.step}
+                      onChange={(e) => updateQuestion(qIndex, 'step', parseInt(e.target.value))}
+                    />
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <label>Correct Slider Value</label>
                   <input
                     type="number"
                     className="form-control"
-                    value={q.min}
-                    onChange={e => updateQuestion(qIndex, 'min', parseInt(e.target.value))}
+                    value={q.correct_value || ''}
+                    onChange={(e) =>
+                      updateQuestion(qIndex, 'correct_value', parseInt(e.target.value, 10))
+                    }
                   />
                 </div>
-                <div className="col">
-                  <label>Max Value</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={q.max}
-                    onChange={e => updateQuestion(qIndex, 'max', parseInt(e.target.value))}
-                  />
-                </div>
-                <div className="col">
-                  <label>Step</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={q.step}
-                    onChange={e => updateQuestion(qIndex, 'step', parseInt(e.target.value))}
-                  />
-                </div>
-              </div>
+              </>
             )}
 
             {q.type === 'multiple_choice' && (
@@ -181,13 +206,13 @@ function QuizMaker() {
                       className="form-control"
                       placeholder="Option Text"
                       value={option.text}
-                      onChange={e => updateOption(qIndex, oIndex, 'text', e.target.value)}
+                      onChange={(e) => updateOption(qIndex, oIndex, 'text', e.target.value)}
                     />
                     <div className="input-group-text">
                       <input
                         type="checkbox"
                         checked={option.isCorrect}
-                        onChange={e => updateOption(qIndex, oIndex, 'isCorrect', e.target.checked)}
+                        onChange={(e) => updateOption(qIndex, oIndex, 'isCorrect', e.target.checked)}
                       />
                       <span className="ms-2">Correct</span>
                     </div>
@@ -201,15 +226,10 @@ function QuizMaker() {
                   </div>
                 ))}
                 <div className="d-flex justify-content-between align-items-center">
-                  <button 
-                    className="btn btn-sm btn-secondary"
-                    onClick={() => addOption(qIndex)}
-                  >
+                  <button className="btn btn-sm btn-secondary" onClick={() => addOption(qIndex)}>
                     Add Option
                   </button>
-                  <small className="text-muted">
-                    {q.options.length} option(s)
-                  </small>
+                  <small className="text-muted">{q.options.length} option(s)</small>
                 </div>
               </div>
             )}

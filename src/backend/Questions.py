@@ -22,6 +22,8 @@ class TextInputQuestion(Question):
     id = db.Column(db.Integer, db.ForeignKey('questions.id'), primary_key=True)
     max_length = db.Column(db.Integer)
 
+    correct_answer = db.Column(db.String(255))
+
     __mapper_args__ = {'polymorphic_identity': 'text_input'}
 
 
@@ -38,6 +40,8 @@ class SliderQuestion(Question):
     min_value = db.Column(db.Integer, nullable=False)
     max_value = db.Column(db.Integer, nullable=False)
     step = db.Column(db.Integer, default=1)
+
+    correct_value = db.Column(db.Integer)
 
     __mapper_args__ = {'polymorphic_identity': 'slider'}    
 
