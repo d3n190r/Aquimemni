@@ -32,6 +32,30 @@ function MyQuizzes() {
     fetchQuizzes();
   }, []);
 
+  const handleDelete = async (quizId) => {
+    if (!window.confirm('Weet je zeker dat je deze quiz wilt verwijderen? Deze actie kan niet ongedaan gemaakt worden!')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/quizzes/${quizId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        setQuizzes(quizzes.filter(q => q.id !== quizId));
+        setError('');
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Verwijderen mislukt');
+      }
+    } catch (err) {
+      setError('Netwerkfout bij verwijderen');
+      console.error(err);
+    }
+  };
+
   const toggleQuizDetails = (quizId) => {
     setExpandedQuizId(expandedQuizId === quizId ? null : quizId);
   };
@@ -47,17 +71,6 @@ function MyQuizzes() {
     return new Date(dateString).toLocaleDateString('nl-NL', options);
   };
 
-  // Toggle button for showing/hiding quiz details
-  const renderToggleButton = (quizId) => (
-    <button
-      className="btn btn-link"
-      onClick={() => setExpandedQuizId(prev => prev === quizId ? null : quizId)}
-    >
-      {expandedQuizId === quizId ? '▲' : '▼'}
-    </button>
-  );
-
-  // Count question types (text_input, multiple_choice, slider)
   const countQuestionTypes = (questions) => {
     const counts = { text: 0, multiple: 0, slider: 0 };
     questions.forEach(q => {
@@ -75,9 +88,9 @@ function MyQuizzes() {
   return (
     <div className="container mt-4">
       <Link to="/home" className="btn btn-outline-secondary mb-4">
-        ← Back to Home
+        ← Terug naar Home
       </Link>
-      <h2>My Quizzes</h2>
+      <h2>Mijn Quizzes</h2>
       {quizzes.length === 0 ? (
         <p>Je hebt nog geen quiz gemaakt.</p>
       ) : (
@@ -91,7 +104,28 @@ function MyQuizzes() {
                     Aangemaakt op {formatDate(quiz.created_at)}
                   </small>
                 </div>
-                {renderToggleButton(quiz.id)}
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                  className="btn btn-outline-primary btn-sm"
+                  onClick={() => navigate(`/quiz/edit/${quiz.id}`, { state: { quiz } })}
+                  >
+                  Bewerken
+                  </button>
+                  <button
+                    className="btn btn-outline-danger btn-sm"
+                    onClick={() => handleDelete(quiz.id)}
+                    title="Quiz verwijderen"
+                  >
+                    Verwijderen
+                  </button>
+                  <button
+                    className="btn btn-link p-0"
+                    onClick={() => toggleQuizDetails(quiz.id)}
+                    aria-label="Details tonen/verbergen"
+                  >
+                    {expandedQuizId === quiz.id ? <ChevronUp /> : <ChevronDown />}
+                  </button>
+                </div>
               </div>
 
               {expandedQuizId === quiz.id && (
@@ -101,7 +135,7 @@ function MyQuizzes() {
                       className="btn btn-primary"
                       onClick={() => navigate(`/simulate/${quiz.id}`, { state: { quiz } })}
                     >
-                      Simulate This Quiz
+                      Simuleer deze quiz
                     </button>
                   </div>
                   <div className="mb-3">
@@ -136,7 +170,7 @@ function MyQuizzes() {
                           </small>
                           <br />
                           <small className="text-muted">
-                            Correct Answer: {question.correct_answer}
+                            Correct antwoord: {question.correct_answer}
                           </small>
                         </div>
                       )}
@@ -148,7 +182,7 @@ function MyQuizzes() {
                           </small>
                           <br />
                           <small className="text-muted">
-                            Correct Value: {question.correct_value}
+                            Correcte waarde: {question.correct_value}
                           </small>
                         </div>
                       )}

@@ -52,6 +52,6 @@ OPTIONS
 class MultipleChoiceOption(db.Model):
     __tablename__ = 'multiple_choice_options'
     id = db.Column(db.Integer, primary_key=True)
-    question_id = db.Column(db.Integer, db.ForeignKey('multiple_choice_questions.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('multiple_choice_questions.id', ondelete='CASCADE'), nullable=False)
     text = db.Column(db.String(255), nullable=False)
     is_correct = db.Column(db.Boolean, default=False)

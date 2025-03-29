@@ -71,6 +71,8 @@ function App() {
       <Route path="/followers" element={<Followers />} />
       {/* Route voor Quiz Maker */}
       <Route path="/quiz-maker" element={<QuizMaker />} />
+      <Route path="/quiz/new" element={<QuizMaker />} />
+      <Route path="/quiz/edit/:id" element={<QuizMaker />} />
       {/* Route voor MyQuizzes (lijst met eigen quizzes) */}
       <Route
         path="/my-quizzes"

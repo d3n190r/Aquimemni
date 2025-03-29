@@ -50,7 +50,7 @@ class Quiz(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     name = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    questions = db.relationship('Question', backref='quiz', lazy=True)
+    questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete-orphan')
     user = db.relationship("User", backref="quizzes", lazy=True)
     # Optioneel: als je een relatie naar de User wilt, kun je dit activeren:
 
@@ -368,7 +368,108 @@ def handle_profile():
         db.session.commit()
         return jsonify({"message": "Profile updated"}), 200
 
+@main_bp.route('/quizzes/<int:quiz_id>', methods=['DELETE'])
+def delete_quiz(quiz_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
 
+    try:
+        # Find quiz with ownership check
+        quiz = Quiz.query.filter_by(
+            id=quiz_id, 
+            user_id=session['user_id']
+        ).first()
+        
+        if not quiz:
+            return jsonify({"error": "Quiz not found"}), 404
+
+        # Explicitly delete questions and their relationships
+        for question in quiz.questions:
+            if question.question_type == 'multiple_choice':
+                # Delete options first
+                MultipleChoiceOption.query.filter_by(
+                    question_id=question.id
+                ).delete()
+        
+        # Delete the quiz and cascade through relationships
+        db.session.delete(quiz)
+        db.session.commit()
+        
+        return jsonify({"message": "Quiz deleted successfully"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@main_bp.route('/quizzes/<int:quiz_id>', methods=['PUT'])
+def update_quiz(quiz_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    data = request.get_json()
+    quiz = Quiz.query.filter_by(id=quiz_id, user_id=session['user_id']).first()
+    
+    if not quiz:
+        return jsonify({"error": "Quiz not found"}), 404
+
+    try:
+        # Update quiz name
+        quiz.name = data.get('name', quiz.name)
+        
+        # Delete existing questions and their relationships
+        for question in quiz.questions:
+            # Explicitly delete options for multiple choice questions first
+            if question.question_type == 'multiple_choice':
+                MultipleChoiceOption.query.filter_by(question_id=question.id).delete()
+            db.session.delete(question)
+        
+        # Add new questions from request
+        for q_data in data.get('questions', []):
+            question = None
+            if q_data['type'] == 'text_input':
+                question = TextInputQuestion(
+                    quiz_id=quiz.id,
+                    question_text=q_data['text'],
+                    max_length=q_data.get('max_length', 255),
+                    correct_answer=q_data.get('correct_answer')
+                )
+                db.session.add(question)
+                
+            elif q_data['type'] == 'multiple_choice':
+                question = MultipleChoiceQuestion(
+                    quiz_id=quiz.id,
+                    question_text=q_data['text']
+                )
+                db.session.add(question)
+                db.session.flush()  # Generate question ID for options
+                
+                # Add options after question is flushed and has an ID
+                for opt in q_data.get('options', []):
+                    option = MultipleChoiceOption(
+                        question_id=question.id,  # Use the flushed ID
+                        text=opt['text'],
+                        is_correct=opt.get('isCorrect', False)
+                    )
+                    db.session.add(option)
+                
+            elif q_data['type'] == 'slider':
+                question = SliderQuestion(
+                    quiz_id=quiz.id,
+                    question_text=q_data['text'],
+                    min_value=q_data.get('min', 0),
+                    max_value=q_data.get('max', 10),
+                    step=q_data.get('step', 1),
+                    correct_value=q_data.get('correct_value')
+                )
+                db.session.add(question)
+
+        db.session.commit()
+        return jsonify({"message": "Quiz updated", "quiz_id": quiz.id}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
 # ------------------------------
 # Applicatie starten
 # ------------------------------
