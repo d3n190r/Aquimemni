@@ -14,6 +14,7 @@ import Quiz from './components/feature components/Quiz';
 import Followers from './components/feature components/Followers';
 import QuizMaker from './components/feature components/QuizMaker';
 import Profile from './components/feature components/Profile';
+import Settings from './components/feature components/Settings';
 
 // Import MyQuizzes component (lijst met eigen quizzes)
 import MyQuizzes from './components/feature components/MyQuizzes';
@@ -90,6 +91,17 @@ function App() {
         element={
           isAuthenticated ? (
             <Home onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      {/* Route voor de Home pagina */}
+      <Route
+        path="/settings"
+        element={
+          isAuthenticated ? (
+            <Settings />
           ) : (
             <Navigate to="/login" replace />
           )

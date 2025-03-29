@@ -47,15 +47,6 @@ const NavigationSidebar = () => {
           </li>
           <li className="nav-item">
             <NavLink
-              to="/profile"
-              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-            >
-              <i className="bi bi-person me-2"></i>
-              Profile
-            </NavLink>
-          </li>
-          <li className="nav-item">
-            <NavLink
               to="/followers"
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             >
