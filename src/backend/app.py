@@ -1,10 +1,10 @@
 # src/backend/app.py
 from flask import Blueprint, request, jsonify, session
-from .init_flask import db
+from .init_flask import db, main_bp
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from flask_cors import CORS  # Add CORS support
 
-main_bp = Blueprint('main', __name__)
 
 from .Questions import (
     Question,
@@ -375,9 +375,14 @@ def delete_quiz(quiz_id):
 
     try:
         # Find quiz with ownership check
+        user_id = session['user_id']
+        if not User.query.get(user_id):
+            session.clear()
+            return jsonify({"error": "Session invalid"}), 401
+        
         quiz = Quiz.query.filter_by(
             id=quiz_id, 
-            user_id=session['user_id']
+            user_id=user_id
         ).first()
         
         if not quiz:
@@ -413,6 +418,13 @@ def update_quiz(quiz_id):
         return jsonify({"error": "Quiz not found"}), 404
 
     try:
+        
+        # Validate session before proceeding
+        user_id = session['user_id']
+        if not User.query.get(user_id):
+            session.clear()
+            return jsonify({"error": "Session invalid"}), 401
+    
         # Update quiz name
         quiz.name = data.get('name', quiz.name)
         
@@ -477,11 +489,10 @@ def update_quiz(quiz_id):
 def create_app():
     from .init_flask import create_app as flask_create_app
     app = flask_create_app()
+    CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
     return app
 
-
 # Voor development run
-
 if __name__ == '__main__':
     app = create_app()
     app.run(debug=True)

@@ -29,20 +29,35 @@ function QuizMaker() {
     }
   }, [state]);
 
+  // Fixed question type initialization
+  const getInitialQuestionState = (type) => {
+    const base = { type, text: '' };
+    switch(type) {
+      case 'multiple_choice':
+        return { ...base, options: [{ text: '', isCorrect: false }] };
+      case 'slider':
+        return { ...base, min: 0, max: 10, step: 1, correct_value: null };
+      case 'text_input':
+        return { ...base, max_length: 255, correct_answer: '' };
+      default:
+        return base;
+    }
+  };
+
   const addQuestion = (type) => {
     setQuizData(prev => ({
       ...prev,
-      questions: [
-        ...prev.questions,
-        {
-          type,
-          text: '',
-          ...(type === 'multiple_choice' && { options: [{ text: '', isCorrect: false }] }),
-          ...(type === 'slider' && { min: 0, max: 10, step: 1, correct_value: null }),
-          ...(type === 'text_input' && { max_length: 255, correct_answer: '' }),
-        },
-      ]
+      questions: [...prev.questions, getInitialQuestionState(type)]
     }));
+  };
+
+  // Fixed question type change handler
+  const handleQuestionTypeChange = (qIndex, newType) => {
+    setQuizData(prev => {
+      const updatedQuestions = [...prev.questions];
+      updatedQuestions[qIndex] = getInitialQuestionState(newType);
+      return { ...prev, questions: updatedQuestions };
+    });
   };
 
   const validateQuestion = (question, index) => {
@@ -156,7 +171,7 @@ function QuizMaker() {
       if (!response.ok) throw new Error(data.error || 'Operation failed');
 
       setFeedback(quizData.id ? 'Quiz succesvol bijgewerkt!' : `Succes! Quiz ID: ${data.quiz_id}`);
-      setTimeout(() => navigate('/quizzes'), 2000);
+      setTimeout(() => navigate('/my-quizzes'), 2000);
       
     } catch (err) {
       setFeedback(err.message || 'Er is een fout opgetreden');
@@ -176,21 +191,25 @@ function QuizMaker() {
     setQuizData(prev => {
       const updated = [...prev.questions];
       updated[qIndex].options[oIndex][field] = value;
-      return {questions: updated };
+      return { ...prev, questions: updated };
     });
   };
 
   const addOption = (qIndex) => {
     setQuizData(prev => {
-      const updated = [...prev.questions];
-      updated[qIndex].options.push({ text: '', isCorrect: false });
-      return { ...prev, questions: updated };
+      const updated = JSON.parse(JSON.stringify([...prev.questions]));
+      // Create a new array instead of mutating the existing one
+      updated[qIndex].options = [
+        ...updated[qIndex].options,
+        { text: '', isCorrect: false }
+      ];
+      return {...prev, questions: updated};
     });
   };
 
   const deleteOption = (qIndex, oIndex) => {
     setQuizData(prev => {
-      const updated = [...prev.questions];
+      const updated = JSON.parse(JSON.stringify([...prev.questions]));
       updated[qIndex].options = updated[qIndex].options.filter((_, i) => i !== oIndex);
       return { ...prev, questions: updated };
     });
@@ -206,7 +225,7 @@ function QuizMaker() {
   return (
     <div className="container mt-4">
       <div className="d-flex gap-1 align-items-center mb-4">
-      <Link to="/quizzes" className="btn btn-outline-secondary mb-4">
+      <Link to="/my-quizzes" className="btn btn-outline-secondary mb-4">
         ← Terug naar Quizzes
       </Link>
       <Link to="/home" className="btn btn-outline-secondary mb-4">
@@ -214,7 +233,7 @@ function QuizMaker() {
       </Link>
       </div>
       <h2>{quizData.id ? 'Quiz Bewerken' : 'Nieuwe Quiz Maken'}</h2>
-      {feedback && <div className={`alert ${feedback.includes('succes') ? 'alert-success' : 'alert-danger'}`}>{feedback}</div>}
+      {feedback && <div className={`alert ${feedback.includes('succesvol') ? 'alert-success' : 'alert-danger'}`}>{feedback}</div>}
 
       <div className="mb-3">
         <label className="form-label">Quiz Naam</label>
@@ -242,7 +261,7 @@ function QuizMaker() {
             <select
               className="form-select mb-3"
               value={q.type}
-              onChange={(e) => updateQuestion(qIndex, 'type', e.target.value)}
+              onChange={(e) => handleQuestionTypeChange(qIndex, e.target.value)}
             >
               <option value="text_input">Tekst Invoer</option>
               <option value="multiple_choice">Meerkeuze</option>
@@ -361,7 +380,7 @@ function QuizMaker() {
                 ))}
                 <div className="d-flex justify-content-between align-items-center">
                   <button className="btn btn-sm btn-secondary" onClick={() => addOption(qIndex)}>
-                    Optie Toevoegen
+                    Optie Toevoegen (+)
                   </button>
                   <small className="text-muted">{q.options.length} optie(s)</small>
                 </div>

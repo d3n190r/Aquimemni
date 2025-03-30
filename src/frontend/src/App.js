@@ -1,6 +1,6 @@
 // frontend/src/App.js
 import React, { useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Prot } from 'react-router-dom';
 
 // Import authenticatie componenten
 import Signup from './components/Signup';
@@ -40,75 +40,65 @@ function App() {
 
   return (
     <Routes>
+      
       {/* Route voor de interactieve Quiz */}
       <Route 
         path="/simulate/:quizId" 
         element={<QuizSimulator />} 
       />
+      
       {/* Route voor de interactieve Quiz */}
       <Route
         path="/quiz"
-        element={
-          isAuthenticated ? (
-            <Quiz onLogout={handleLogout} />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
+        element={<Quiz onLogout={handleLogout} />}
       />
+      
       {/* Route voor registratie */}
       <Route
         path="/signup"
         element={<Signup onSignup={() => { /* eventueel na signup */ }} />}
       />
+      
       {/* Route voor inloggen */}
       <Route
         path="/login"
         element={<Login onLogin={handleLogin} />}
       />
+      
       {/* Route voor gebruikersprofiel */}
       <Route path="/profile" element={<Profile />} />
+      
       {/* Route voor volgers */}
       <Route path="/followers" element={<Followers />} />
+      
       {/* Route voor Quiz Maker */}
       <Route path="/quiz-maker" element={<QuizMaker />} />
-      <Route path="/quiz/new" element={<QuizMaker />} />
-      <Route path="/quiz/edit/:id" element={<QuizMaker />} />
+      
+      <Route path="/quiz/new" element={<QuizMaker/>} />
+      
+      <Route path="/quiz/edit/:id" element={<QuizMaker/>} />
+      
       {/* Route voor MyQuizzes (lijst met eigen quizzes) */}
       <Route
         path="/my-quizzes"
-        element={
-          isAuthenticated ? (
-            <MyQuizzes />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
+        element={<MyQuizzes />}
       />
+      
       {/* Route voor de Home pagina */}
       <Route
         path="/home"
-        element={
-          isAuthenticated ? (
-            <Home onLogout={handleLogout} />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
+        element={<Home onLogout={handleLogout} />}
       />
+      
       {/* Route voor de Home pagina */}
       <Route
         path="/settings"
-        element={
-          isAuthenticated ? (
-            <Settings />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
+        element={<Settings />}
       />
+      
       {/* Alle andere routes leiden door naar login */}
       <Route path="*" element={<Navigate to="/login" replace />} />
+    
     </Routes>
   );
 }

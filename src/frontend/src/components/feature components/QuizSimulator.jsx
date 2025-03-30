@@ -42,7 +42,7 @@ function QuizSimulator() {
         setQuiz(data);
       } catch (err) {
         console.error('Error fetching quiz:', err);
-        navigate('/quizzes');
+        navigate('/my-quizzes');
       } finally {
         setLoading(false);
       }
@@ -111,7 +111,7 @@ function QuizSimulator() {
   return (
     <div className="container quiz-container mt-4">
       <div className="mb-4">
-        <button className="btn btn-outline-secondary me-2" onClick={() => navigate('/quizzes')}>
+        <button className="btn btn-outline-secondary me-2" onClick={() => navigate('/my-quizzes')}>
           ← Back to My Quizzes
         </button>
         <Link to="/home" className="btn btn-outline-secondary">
