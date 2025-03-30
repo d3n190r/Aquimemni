@@ -66,50 +66,50 @@ function QuizMaker() {
   
     // Common validation for all question types
     if (!question.text.trim()) {
-      errors.push(`Vraag ${questionNumber}: Vraagtekst is verplicht`);
+      errors.push(`Question ${questionNumber}: Question text is required`);
     }
   
     // Type-specific validation
     switch (question.type) {
       case 'text_input':
         if (!question.correct_answer?.trim()) {
-          errors.push(`Vraag ${questionNumber}: Correct antwoord is verplicht`);
+          errors.push(`Question ${questionNumber}: Correct answer is required`);
         }
         if (!question.max_length || question.max_length < 1 || question.max_length > 500) {
-          errors.push(`Vraag ${questionNumber}: Ongeldige maximale lengte (1-500)`);
+          errors.push(`Question ${questionNumber}: Invalid max length (1-500)`);
         }
         break;
   
       case 'slider':
         if (question.min >= question.max) {
-          errors.push(`Vraag ${questionNumber}: Minimum moet kleiner zijn dan maximum`);
+          errors.push(`Question ${questionNumber}: Min must be less than max`);
         }
         if (question.step < 1 || question.step > (question.max - question.min)) {
-          errors.push(`Vraag ${questionNumber}: Ongeldige stapgrootte`);
+          errors.push(`Question ${questionNumber}: Invalid step size`);
         }
         if (typeof question.correct_value !== 'number' || 
             question.correct_value < question.min || 
             question.correct_value > question.max) {
-          errors.push(`Vraag ${questionNumber}: Correcte waarde moet tussen min en max liggen`);
+          errors.push(`Question ${questionNumber}: Correct value must be between min and max`);
         }
         break;
   
       case 'multiple_choice':
         if (question.options.length < 2) {
-          errors.push(`Vraag ${questionNumber}: Minimaal 2 opties vereist`);
+          errors.push(`Question ${questionNumber}: Minimum 2 options required`);
         }
         if (!question.options.some(opt => opt.isCorrect)) {
-          errors.push(`Vraag ${questionNumber}: Minstens 1 correcte optie vereist`);
+          errors.push(`Question ${questionNumber}: At least 1 correct option required`);
         }
         question.options.forEach((opt, optIndex) => {
           if (!opt.text.trim()) {
-            errors.push(`Vraag ${questionNumber}: Optie ${optIndex + 1} tekst is verplicht`);
+            errors.push(`Question ${questionNumber}: Option ${optIndex + 1} text is required`);
           }
         });
         break;
   
       default:
-        errors.push(`Vraag ${questionNumber}: Onbekend vraagtype`);
+        errors.push(`Question ${questionNumber}: Unknown question type`);
     }
   
     return errors;
@@ -120,7 +120,7 @@ function QuizMaker() {
     setFeedback('');
     
     if (!quizData.name) {
-      setFeedback('Geef een quiz-naam op a.u.b.');
+      setFeedback('Please provide a quiz name');
       return;
     }
 
@@ -170,11 +170,11 @@ function QuizMaker() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Operation failed');
 
-      setFeedback(quizData.id ? 'Quiz succesvol bijgewerkt!' : `Succes! Quiz ID: ${data.quiz_id}`);
+      setFeedback(quizData.id ? 'Quiz updated successfully!' : `Success! Quiz ID: ${data.quiz_id}`);
       setTimeout(() => navigate('/my-quizzes'), 2000);
       
     } catch (err) {
-      setFeedback(err.message || 'Er is een fout opgetreden');
+      setFeedback(err.message || 'An error occurred');
       console.error(err);
     }
   };
@@ -198,7 +198,6 @@ function QuizMaker() {
   const addOption = (qIndex) => {
     setQuizData(prev => {
       const updated = JSON.parse(JSON.stringify([...prev.questions]));
-      // Create a new array instead of mutating the existing one
       updated[qIndex].options = [
         ...updated[qIndex].options,
         { text: '', isCorrect: false }
@@ -225,18 +224,18 @@ function QuizMaker() {
   return (
     <div className="container mt-4">
       <div className="d-flex gap-1 align-items-center mb-4">
-      <Link to="/my-quizzes" className="btn btn-outline-secondary mb-4">
-        ← Terug naar Quizzes
-      </Link>
-      <Link to="/home" className="btn btn-outline-secondary mb-4">
-        ← Terug naar Home
-      </Link>
+        <Link to="/home" className="btn btn-outline-secondary mb-4">
+          ← Back to Home
+        </Link>
+        <Link to="/my-quizzes" className="btn btn-outline-secondary mb-4">
+          ← Back to Quizzes
+        </Link>
       </div>
-      <h2>{quizData.id ? 'Quiz Bewerken' : 'Nieuwe Quiz Maken'}</h2>
-      {feedback && <div className={`alert ${feedback.includes('succesvol') ? 'alert-success' : 'alert-danger'}`}>{feedback}</div>}
+      <h2>{quizData.id ? 'Edit Quiz' : 'Create New Quiz'}</h2>
+      {feedback && <div className={`alert ${feedback.includes('successfully') ? 'alert-success' : 'alert-danger'}`}>{feedback}</div>}
 
       <div className="mb-3">
-        <label className="form-label">Quiz Naam</label>
+        <label className="form-label">Quiz Name</label>
         <input
           type="text"
           className="form-control"
@@ -249,12 +248,12 @@ function QuizMaker() {
       {quizData.questions.map((q, qIndex) => (
         <div key={qIndex} className="card mb-3">
           <div className="card-header d-flex justify-content-between align-items-center">
-            <span>Vraag {qIndex + 1}</span>
+            <span>Question {qIndex + 1}</span>
             <button 
               className="btn btn-danger btn-sm" 
               onClick={() => deleteQuestion(qIndex)}
             >
-              Vraag Verwijderen
+              Delete Question
             </button>
           </div>
           <div className="card-body">
@@ -263,14 +262,14 @@ function QuizMaker() {
               value={q.type}
               onChange={(e) => handleQuestionTypeChange(qIndex, e.target.value)}
             >
-              <option value="text_input">Tekst Invoer</option>
-              <option value="multiple_choice">Meerkeuze</option>
+              <option value="text_input">Text Input</option>
+              <option value="multiple_choice">Multiple Choice</option>
               <option value="slider">Slider</option>
             </select>
 
             <textarea
               className="form-control mb-3"
-              placeholder="Vraagtekst"
+              placeholder="Question text"
               value={q.text}
               onChange={(e) => updateQuestion(qIndex, 'text', e.target.value)}
               required
@@ -279,7 +278,7 @@ function QuizMaker() {
             {q.type === 'text_input' && (
               <>
                 <div className="mb-3">
-                  <label>Maximale lengte</label>
+                  <label>Max Length</label>
                   <input
                     type="number"
                     className="form-control"
@@ -290,7 +289,7 @@ function QuizMaker() {
                   />
                 </div>
                 <div className="mb-3">
-                  <label>Correct Antwoord</label>
+                  <label>Correct Answer</label>
                   <input
                     type="text"
                     className="form-control"
@@ -306,7 +305,7 @@ function QuizMaker() {
               <>
                 <div className="row g-3 mb-3">
                   <div className="col">
-                    <label>Minimum Waarde</label>
+                    <label>Min Value</label>
                     <input
                       type="number"
                       className="form-control"
@@ -315,7 +314,7 @@ function QuizMaker() {
                     />
                   </div>
                   <div className="col">
-                    <label>Maximum Waarde</label>
+                    <label>Max Value</label>
                     <input
                       type="number"
                       className="form-control"
@@ -324,7 +323,7 @@ function QuizMaker() {
                     />
                   </div>
                   <div className="col">
-                    <label>Stapgrootte</label>
+                    <label>Step Size</label>
                     <input
                       type="number"
                       className="form-control"
@@ -335,7 +334,7 @@ function QuizMaker() {
                   </div>
                 </div>
                 <div className="mb-3">
-                  <label>Correcte Waarde</label>
+                  <label>Correct Value</label>
                   <input
                     type="number"
                     className="form-control"
@@ -356,7 +355,7 @@ function QuizMaker() {
                     <input
                       type="text"
                       className="form-control"
-                      placeholder="Optie tekst"
+                      placeholder="Option text"
                       value={option.text}
                       onChange={(e) => updateOption(qIndex, oIndex, 'text', e.target.value)}
                       required
@@ -380,9 +379,9 @@ function QuizMaker() {
                 ))}
                 <div className="d-flex justify-content-between align-items-center">
                   <button className="btn btn-sm btn-secondary" onClick={() => addOption(qIndex)}>
-                    Optie Toevoegen (+)
+                    Add Option (+)
                   </button>
-                  <small className="text-muted">{q.options.length} optie(s)</small>
+                  <small className="text-muted">{q.options.length} option(s)</small>
                 </div>
               </div>
             )}
@@ -392,18 +391,18 @@ function QuizMaker() {
 
       <div className="mb-3">
         <button type="button" className="btn btn-secondary me-2" onClick={() => addQuestion('text_input')}>
-          Tekstvraag Toevoegen
+          Add Text Question
         </button>
         <button type="button" className="btn btn-secondary me-2" onClick={() => addQuestion('multiple_choice')}>
-          Meerkeuzevraag Toevoegen
+          Add Multiple Choice Question
         </button>
         <button type="button" className="btn btn-secondary" onClick={() => addQuestion('slider')}>
-          Slidervraag Toevoegen
+          Add Slider Question
         </button>
       </div>
 
       <button type="submit" className="btn btn-primary" onClick={handleSubmit}>
-        {quizData.id ? 'Wijzigingen Opslaan' : 'Quiz Aanmaken'}
+        {quizData.id ? 'Save Changes' : 'Create Quiz'}
       </button>
     </div>
   );

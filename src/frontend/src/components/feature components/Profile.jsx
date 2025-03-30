@@ -121,7 +121,7 @@ function Profile() {
                   className="btn btn-outline-secondary me-2"
                   onClick={() => navigate('/home')}
                 >
-                  ← Go Home
+                  ← Back to Home
                 </button>
                 <button
                   className="btn btn-primary"

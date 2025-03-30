@@ -17,14 +17,14 @@ function MyQuizzes() {
         });
         if (!response.ok) {
           const data = await response.json();
-          setError(data.error || 'Kon quizzes niet ophalen');
+          setError(data.error || 'Failed to fetch quizzes');
           return;
         }
         const data = await response.json();
         setQuizzes(data);
         return data;
       } catch (err) {
-        setError('Er trad een netwerkfout op bij het laden van quizzes');
+        setError('A network error occurred while loading quizzes');
         console.error(err);
       }
     };
@@ -33,7 +33,7 @@ function MyQuizzes() {
   }, []);
 
   const handleDelete = async (quizId) => {
-    if (!window.confirm('Weet je zeker dat je deze quiz wilt verwijderen? Deze actie kan niet ongedaan gemaakt worden!')) {
+    if (!window.confirm('Are you sure you want to delete this quiz? This action cannot be undone!')) {
       return;
     }
 
@@ -48,10 +48,10 @@ function MyQuizzes() {
         setError('');
       } else {
         const data = await response.json();
-        setError(data.error || 'Verwijderen mislukt');
+        setError(data.error || 'Deletion failed');
       }
     } catch (err) {
-      setError('Netwerkfout bij verwijderen');
+      setError('Network error during deletion');
       console.error(err);
     }
   };
@@ -88,11 +88,11 @@ function MyQuizzes() {
   return (
     <div className="container mt-4">
       <Link to="/home" className="btn btn-outline-secondary mb-4">
-        ← Terug naar Home
+        ← Back to Home
       </Link>
-      <h2>Mijn Quizzes</h2>
+      <h2>My Quizzes</h2>
       {quizzes.length === 0 ? (
-        <p>Je hebt nog geen quiz gemaakt.</p>
+        <p>You haven't created any quizzes yet.</p>
       ) : (
         <div className="accordion">
           {quizzes.map(quiz => (
@@ -101,27 +101,27 @@ function MyQuizzes() {
                 <div>
                   <h5 className="mb-0">{quiz.name}</h5>
                   <small className="text-muted">
-                    Aangemaakt op {formatDate(quiz.created_at)}
+                    Created on {formatDate(quiz.created_at)}
                   </small>
                 </div>
                 <div className="d-flex align-items-center gap-2">
                   <button
-                  className="btn btn-outline-primary btn-sm"
-                  onClick={() => navigate(`/quiz/edit/${quiz.id}`, { state: { quiz } })}
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => navigate(`/quiz/edit/${quiz.id}`, { state: { quiz } })}
                   >
-                  Bewerken
+                    Edit
                   </button>
                   <button
                     className="btn btn-outline-danger btn-sm"
                     onClick={() => handleDelete(quiz.id)}
-                    title="Quiz verwijderen"
+                    title="Delete quiz"
                   >
-                    Verwijderen
+                    Delete
                   </button>
                   <button
                     className="btn btn-link p-0"
                     onClick={() => toggleQuizDetails(quiz.id)}
-                    aria-label="Details tonen/verbergen"
+                    aria-label="Show/hide details"
                   >
                     {expandedQuizId === quiz.id ? <ChevronUp /> : <ChevronDown />}
                   </button>
@@ -135,28 +135,28 @@ function MyQuizzes() {
                       className="btn btn-primary"
                       onClick={() => navigate(`/simulate/${quiz.id}`, { state: { quiz } })}
                     >
-                      Simuleer deze quiz
+                      Simulate this quiz
                     </button>
                   </div>
                   <div className="mb-3">
-                    <h6>Overzicht:</h6>
+                    <h6>Overview:</h6>
                     <ul className="list-unstyled">
-                      <li>Totaal vragen: {quiz.questions.length}</li>
-                      <li>Totaal antwoorden: {
+                      <li>Total questions: {quiz.questions.length}</li>
+                      <li>Total answers: {
                         quiz.questions.reduce((acc, q) => acc + (q.answers?.length || 0), 0)
                       }</li>
-                      <li>Vraagtypes: {Object.entries(countQuestionTypes(quiz.questions))
+                      <li>Question types: {Object.entries(countQuestionTypes(quiz.questions))
                         .map(([type, count]) => `${count} ${type}`)
                         .join(', ')}
                       </li>
                     </ul>
                   </div>
 
-                  <h6>Vragen:</h6>
+                  <h6>Questions:</h6>
                   {quiz.questions?.map((question, qIndex) => (
                     <div key={qIndex} className="mb-3 p-2 border rounded">
                       <div className="d-flex justify-content-between">
-                        <strong>Vraag {qIndex + 1}</strong>
+                        <strong>Question {qIndex + 1}</strong>
                         <span className="badge bg-secondary">
                           {question.type.replace('_', ' ')}
                         </span>
@@ -166,11 +166,11 @@ function MyQuizzes() {
                       {question.type === 'text_input' && (
                         <div>
                           <small className="text-muted">
-                            Max. lengte: {question.max_length}
+                            Max length: {question.max_length}
                           </small>
                           <br />
                           <small className="text-muted">
-                            Correct antwoord: {question.correct_answer}
+                            Correct answer: {question.correct_answer}
                           </small>
                         </div>
                       )}
@@ -178,18 +178,18 @@ function MyQuizzes() {
                       {question.type === 'slider' && (
                         <div>
                           <small className="text-muted">
-                            Bereik: {question.min}-{question.max} (stap: {question.step})
+                            Range: {question.min}-{question.max} (step: {question.step})
                           </small>
                           <br />
                           <small className="text-muted">
-                            Correcte waarde: {question.correct_value}
+                            Correct value: {question.correct_value}
                           </small>
                         </div>
                       )}
 
                       {question.type === 'multiple_choice' && (
                         <div className="mt-2">
-                          <small>Opties:</small>
+                          <small>Options:</small>
                           <ul className="list-unstyled">
                             {question.options?.map((option, oIndex) => (
                               <li key={oIndex} className="ms-2">
