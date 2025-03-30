@@ -13,9 +13,9 @@ function Signup({ onSignup }) {
     e.preventDefault();
     setError('');
 
-    // Check of beide wachtwoorden gelijk zijn
+    // Check if passwords match
     if (password !== password2) {
-      setError('Wachtwoorden komen niet overeen!');
+      setError('Passwords do not match!');
       return;
     }
 
@@ -29,25 +29,25 @@ function Signup({ onSignup }) {
 
       if (response.status === 201) {
         onSignup && onSignup();
-        navigate('/login'); // Registratie klaar -> naar login
+        navigate('/login'); // Registration complete -> go to login
       } else {
         const data = await response.json();
-        setError(data.error || 'Registreren mislukt');
+        setError(data.error || 'Registration failed');
       }
     } catch (err) {
-      setError('Netwerkfout: Probeer opnieuw');
+      setError('Network error: Please try again');
       console.error(err);
     }
   };
 
   return (
     <div className="container" style={{ maxWidth: '400px', marginTop: '50px' }}>
-      <h2 className="mb-4">Registreren</h2>
+      <h2 className="mb-4">Sign Up</h2>
       <form onSubmit={handleSubmit}>
         {error && <div className="alert alert-danger">{error}</div>}
 
         <div className="mb-3">
-          <label className="form-label">Gebruikersnaam</label>
+          <label className="form-label">Username</label>
           <input
             type="text"
             className="form-control"
@@ -58,7 +58,7 @@ function Signup({ onSignup }) {
         </div>
 
         <div className="mb-3">
-          <label className="form-label">Wachtwoord</label>
+          <label className="form-label">Password</label>
           <input
             type="password"
             className="form-control"
@@ -69,7 +69,7 @@ function Signup({ onSignup }) {
         </div>
 
         <div className="mb-3">
-          <label className="form-label">Bevestig wachtwoord</label>
+          <label className="form-label">Confirm Password</label>
           <input
             type="password"
             className="form-control"
@@ -80,18 +80,18 @@ function Signup({ onSignup }) {
         </div>
 
         <button type="submit" className="btn btn-primary w-100 mb-3">
-          Account aanmaken
+          Create Account
         </button>
       </form>
 
-      {/* Terug naar inlogscherm */}
+      {/* Back to login */}
       <div className="text-center">
         <button
           type="button"
           className="btn btn-secondary"
           onClick={() => navigate('/login')}
         >
-          Terug naar inlog
+          Back to Login
         </button>
       </div>
     </div>

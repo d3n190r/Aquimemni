@@ -23,10 +23,10 @@ function Login({ onLogin }) {
         navigate('/home');
       } else {
         const data = await response.json();
-        setError(data.error || 'Inloggen mislukt');
+        setError(data.error || 'Login failed');
       }
     } catch (err) {
-      setError('Netwerkfout: Probeer opnieuw');
+      setError('Network error: Please try again');
       console.error(err);
     }
   };
@@ -38,13 +38,13 @@ function Login({ onLogin }) {
         <img src="/logo.png" alt="App Logo" style={{ width: '150px', marginBottom: '20px' }} />
       </div>
 
-      <h2 className="mb-4">Inloggen</h2>
+      <h2 className="mb-4">Login</h2>
 
       <form onSubmit={handleSubmit}>
         {error && <div className="alert alert-danger">{error}</div>}
 
         <div className="mb-3">
-          <label className="form-label">Gebruikersnaam</label>
+          <label className="form-label">Username</label>
           <input
             type="text"
             className="form-control"
@@ -55,7 +55,7 @@ function Login({ onLogin }) {
         </div>
 
         <div className="mb-3">
-          <label className="form-label">Wachtwoord</label>
+          <label className="form-label">Password</label>
           <input
             type="password"
             className="form-control"
@@ -66,18 +66,18 @@ function Login({ onLogin }) {
         </div>
 
         <button type="submit" className="btn btn-primary w-100">
-          Inloggen
+          Login
         </button>
       </form>
 
-      {/* SIGNUP-KNOP */}
+      {/* SIGNUP BUTTON */}
       <div className="text-center mt-3">
         <button
           type="button"
           className="btn btn-link"
           onClick={() => navigate('/signup')}
         >
-          Signup
+          Sign Up
         </button>
       </div>
     </div>
