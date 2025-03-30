@@ -47,7 +47,7 @@ class Quiz(db.Model):
     """
     __tablename__ = 'quizzes'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     name = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete-orphan')
@@ -336,7 +336,7 @@ def handle_profile():
     if 'user_id' not in session:
         return jsonify({"error": "Not logged in"}), 401
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
     if not user:
         return jsonify({"error": "User not found"}), 404
 
