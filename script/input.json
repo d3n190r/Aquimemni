@@ -1,7 +1,7 @@
 {
     "_comment": "ABSOLUTE PATHS ONLY INCLUDING IN CLI",
-    "folder": "/home/manaci4466/Aquimemni/src/frontend/src/components",
+    "folder": "/home/yilmaz/PycharmProjects/temp/Aquimemni",
     "extensions": [".py", ".txt",".js", ".css"],
-    "ignored_dirs": [],
-    "output_file": "/home/manaci4466/Aquimemni/script/output.md"
+    "ignored_dirs": ["/home/yilmaz/PycharmProjects/temp/Aquimemni/doc", "/home/yilmaz/PycharmProjects/temp/Aquimemni/.git", "/home/yilmaz/PycharmProjects/temp/Aquimemni/.idea", "/home/yilmaz/PycharmProjects/temp/Aquimemni/migrations", "/home/yilmaz/PycharmProjects/temp/Aquimemni/node_modules", "/home/yilmaz/PycharmProjects/temp/Aquimemni/src/frontend/node_modules", "/home/yilmaz/PycharmProjects/temp/Aquimemni/venv", "/home/yilmaz/PycharmProjects/temp/Aquimemni/src/frontend/build"],
+    "output_file": "/home/yilmaz/PycharmProjects/temp/Aquimemni/script/output.md"
 }
