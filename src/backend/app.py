@@ -491,8 +491,3 @@ def create_app():
     app = flask_create_app()
     CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
     return app
-
-# Voor development run
-if __name__ == '__main__':
-    app = create_app()
-    app.run(debug=True)
