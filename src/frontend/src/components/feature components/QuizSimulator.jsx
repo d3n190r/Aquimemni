@@ -12,6 +12,7 @@ function QuizSimulator() {
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [timeLeft, setTimeLeft] = useState(15);
   const navigate = useNavigate();
+  const [answerStatus, setAnswerStatus] = useState([]);
 
   // Timer effect
   useEffect(() => {
@@ -71,11 +72,13 @@ function QuizSimulator() {
 
   const handleNext = () => {
     const currentQ = quiz.questions[currentQuestion];
+    let answerResult = "Wrong";
 
     if (currentQ.type === 'multiple_choice') {
       // Zoek de index van het juiste antwoord
       const correctIndex = currentQ.options.findIndex(opt => opt.is_correct);
       if (selectedAnswer === correctIndex) {
+        answerResult = "Correct";
         setScore(prev => prev + 1);
       }
     } else if (currentQ.type === 'text_input') {
@@ -83,14 +86,18 @@ function QuizSimulator() {
       const userText = String(selectedAnswer).trim().toLowerCase();
       const correctText = String(currentQ.correct_answer || '').trim().toLowerCase();
       if (userText === correctText && userText !== '') {
+        answerResult = "Correct";
         setScore(prev => prev + 1);
       }
     } else if (currentQ.type === 'slider') {
       // Vergelijk de numerieke waarden
       if (Number(selectedAnswer) === Number(currentQ.correct_value)) {
+        answerResult = "Correct";
         setScore(prev => prev + 1);
       }
     }
+
+    setAnswerStatus(prevStatus => [...prevStatus, answerResult]);
 
     // Reset geselecteerd antwoord en timer
     setSelectedAnswer(null);
@@ -108,6 +115,26 @@ function QuizSimulator() {
 
   const currentQ = quiz.questions[currentQuestion];
 
+  /**
+   * Returns the text used to display which questions you got wrong/right
+   *
+   * @param questionNumber The number of the question you want information on
+   * @returns {*|string} The text that has to be shown to the user
+   */
+  const getDetailledScore = (questionNumber) => {
+    const result = answerStatus[questionNumber];
+    if (quiz.questions[questionNumber].type === 'multiple_choice'){
+        const index = quiz.questions[questionNumber].options.findIndex(opt => opt.is_correct)
+        return result + ", the answer was: " + quiz.questions[questionNumber].options[index].text;
+    } else if (quiz.questions[questionNumber].type === 'text_input'){
+        return result + ", the answer was: " + quiz.questions[questionNumber].correct_answer;
+    } else if (quiz.questions[questionNumber].type === 'slider') {
+        return result + ", the answer was: " + quiz.questions[questionNumber].correct_value;
+    }
+    return answerStatus[questionNumber] + ", the answer is unknown to me.";
+};
+
+
   return (
     <div className="container quiz-container mt-4">
       <div className="mb-4">
@@ -120,6 +147,7 @@ function QuizSimulator() {
       </div>
 
       {showScore ? (
+      <div className="container">
         <div className="alert alert-success text-center">
           <h3>Simulation Complete!</h3>
           <p className="display-4">
@@ -133,12 +161,25 @@ function QuizSimulator() {
                 setScore(0);
                 setShowScore(false);
                 setSelectedAnswer(null);
+                setAnswerStatus([]);
               }}
             >
               Retry Quiz
             </button>
           </div>
         </div>
+          {/*<!-- (START) Answer per question -->*/}
+          <div className="alert alert-info text-center">
+                <h3> Short overview <br></br> ---</h3>
+                {Array.from({ length: quiz.questions.length }, (_, i) =>         <div>
+                    <p className="display-7" style={{fontSize:30}}>
+                      <b>Question {i+1}:</b> {quiz.questions[i].text}
+                        </p><p className="display-7" style={{color:"Black", fontFamily:"initial", fontSize:28}}>
+                        {getDetailledScore(i)} </p><h3> --- </h3>
+                </div>)}
+            </div>
+          {/*<!-- (END) Answer per question --> */}
+      </div>
       ) : (
         <div>
           <div className="quiz-header mb-4">

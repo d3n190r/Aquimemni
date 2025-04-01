@@ -27,6 +27,7 @@ function Quiz({ onLogout }) {
   const [timeLeft, setTimeLeft] = useState(15);
   const [questions, setQuestions] = useState([]);
   const navigate = useNavigate();
+  const [answerStatus, setAnswerStatus] = useState([]);
 
   /**
    * Fetch Questions Effect
@@ -129,10 +130,13 @@ function Quiz({ onLogout }) {
    * - Eindscore weergave
    */
   const handleNext = () => {
+    let answerResult = "Wrong";
     if (selectedAnswer === questions[currentQuestion]?.correct) {
       setScore(score + 1);
+      answerResult = "Correct";
     }
 
+    setAnswerStatus(prevStatus => [...prevStatus, answerResult]);
     setSelectedAnswer(null);
     setTimeLeft(15);
 
@@ -169,6 +173,20 @@ function Quiz({ onLogout }) {
     if (quizStarted) checkAuth();
   }, [quizStarted, onLogout, navigate]);
 
+  /**
+   * Returns the text used to display which questions you got wrong/right
+   *
+   * @param questionNumber The number of the question you want information on
+   * @returns {*|string} The text that has to be shown to the user
+   */
+  const getDetailledScore = (questionNumber) => {
+    const result = answerStatus[questionNumber];
+    if (result === "Correct") {
+      return result;
+    }
+    return answerStatus[questionNumber];
+};
+
   // Render logica
   if (questions.length === 0) {
     return <div className="container text-center mt-5">Loading questions...</div>;
@@ -188,12 +206,44 @@ function Quiz({ onLogout }) {
           </button>
         </div>
       ) : showScore ? (
+      <div className="container">
         <div className="alert alert-success text-center">
-          <h3>Quiz Done!</h3>
+          <h3>Simulation Complete!</h3>
           <p className="display-4">
             Score: {score}/{questions.length}
           </p>
+          <p className="display-4">
+          </p>
+          <div className="mt-3">
+            <button
+              className="btn btn-primary me-2"
+              onClick={() => {
+                setCurrentQuestion(0);
+                setScore(0);
+                setShowScore(false);
+                setSelectedAnswer(null);
+                setAnswerStatus([]);
+              }}
+            >
+              Retry Quiz
+            </button>
+                  <p></p>
+          </div>
         </div>
+          {/*<!-- (START) Answer per question -->*/}
+          <div>
+                <section>
+                {Array.from({ length: questions.length }, (_, i) =>         <div className="alert alert-info text-center">
+                    <p className="display-5">
+                        Question {i+1}: {questions[i].text}
+                        </p><p className="display-6">
+                        {getDetailledScore(i)}
+                    </p>
+                </div>)}
+                </section>
+            </div>
+          {/*<!-- (END) Answer per question --> */}
+      </div>
       ) : (
         <div>
           <div className="quiz-header mb-4">
