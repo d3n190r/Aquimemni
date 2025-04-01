@@ -14,7 +14,12 @@ from .Questions import (
     MultipleChoiceQuestion
 )
 
+followers = db.Table('followers',
+    db.Column('follower_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
+    db.Column('followed_id', db.Integer, db.ForeignKey('users.id'), primary_key=True)
+)
 
+# ------------------------------
 # DATABASE MODELLEN
 # ------------------------------
 
@@ -34,7 +39,22 @@ class User(db.Model):
     bio = db.Column(db.Text)
     avatar = db.Column(db.Integer)
     registered_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    followed = db.relationship(
+        'User', secondary=followers,
+        primaryjoin=(followers.c.follower_id == id),
+        secondaryjoin=(followers.c.followed_id == id),
+        backref=db.backref('followers', lazy='dynamic'), lazy='dynamic'
+    )
+    def is_following(self, user):
+        return self.followed.filter(followers.c.followed_id == user.id).count() > 0
 
+    def follow(self, user):
+        if not self.is_following(user):
+            self.followed.append(user)
+
+    def unfollow(self, user):
+        if self.is_following(user):
+            self.followed.remove(user)
 
 class Quiz(db.Model):
     """
@@ -54,10 +74,114 @@ class Quiz(db.Model):
     user = db.relationship("User", backref="quizzes", lazy=True)
     # Optioneel: als je een relatie naar de User wilt, kun je dit activeren:
 
-
 # ------------------------------
 # ROUTES / ENDPOINTS
 # ------------------------------
+
+@main_bp.route('/users/search', methods=['GET'])
+def search_users():
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    current_user = User.query.get(session['user_id'])
+    search_query = request.args.get('q', '').strip().lower()
+    
+    if not search_query:
+        return jsonify([]), 200
+    
+    sanitized_query = search_query.replace('%', '\\%').replace('_', '\\_')
+    
+    users = User.query.filter(
+        User.username.ilike(f'{sanitized_query}%'),
+        User.id != current_user.id
+    ).order_by(
+        User.username.asc()
+    ).limit(10).all()
+
+    return jsonify([{
+        "id": u.id,
+        "username": u.username,
+        "avatar": u.avatar,
+        "is_following": current_user.is_following(u)
+    } for u in users]), 200
+
+
+@main_bp.route('/follow/<int:user_id>', methods=['POST'])
+def follow_user(user_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    current_user = User.query.get(session['user_id'])
+    user_to_follow = User.query.get(user_id)
+    
+    if not user_to_follow or current_user.id == user_id:
+        return jsonify({"error": "Invalid request"}), 400
+
+    if current_user.is_following(user_to_follow):
+        return jsonify({"error": "Already following user"}), 400
+
+    current_user.follow(user_to_follow)
+    db.session.commit()
+    return jsonify({"message": f"Now following {user_to_follow.username}"}), 200
+
+
+@main_bp.route('/unfollow/<int:user_id>', methods=['POST'])
+def unfollow_user(user_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    current_user = User.query.get(session['user_id'])
+    user_to_unfollow = User.query.get(user_id)
+    
+    if not user_to_unfollow or not current_user.is_following(user_to_unfollow):
+        return jsonify({"error": "Invalid request"}), 400
+
+    current_user.unfollow(user_to_unfollow)
+    db.session.commit()
+    return jsonify({"message": f"Unfollowed {user_to_unfollow.username}"}), 200
+
+
+@main_bp.route('/followers/<int:follower_id>', methods=['DELETE'])
+def remove_follower(follower_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    current_user = User.query.get(session['user_id'])
+    follower = User.query.get(follower_id)
+
+    if not follower or not current_user.followers.filter_by(id=follower_id).first():
+        return jsonify({"error": "Invalid request"}), 400
+
+    follower.unfollow(current_user)
+    db.session.commit()
+    return jsonify({"message": "Follower removed successfully"}), 200
+
+
+@main_bp.route('/followers', methods=['GET'])
+def get_followers():
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    user = User.query.get(session['user_id'])
+    return jsonify([{
+        "id": u.id,
+        "username": u.username,
+        "avatar": u.avatar
+    } for u in user.followers.all()]), 200
+
+
+@main_bp.route('/following', methods=['GET'])
+def get_following():
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    user = User.query.get(session['user_id'])
+    return jsonify([{
+        "id": u.id,
+        "username": u.username,
+        "avatar": u.avatar
+    } for u in user.followed.all()]), 200
+
 
 @main_bp.route('/signup', methods=['POST'])
 def signup():
