@@ -491,6 +491,45 @@ def handle_profile():
 
         db.session.commit()
         return jsonify({"message": "Profile updated"}), 200
+    
+@main_bp.route('/change-password', methods=['POST'])
+def change_password():
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    data = request.get_json()
+    current_password = data.get('currentPassword')
+    new_password = data.get('newPassword')
+
+    if not current_password or not new_password:
+        return jsonify({"error": "Current and new password required"}), 400
+
+    user = User.query.get(session['user_id'])
+    if not user or not check_password_hash(user.password_hash, current_password):
+        return jsonify({"error": "Current password is incorrect"}), 401
+
+    user.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+    return jsonify({"message": "Password updated successfully"}), 200
+
+
+@main_bp.route('/delete-account', methods=['DELETE'])
+def delete_account():
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    data = request.get_json()
+    password = data.get('password')
+
+    user = User.query.get(session['user_id'])
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({"error": "Incorrect password"}), 401
+
+    # Delete user and all related data
+    db.session.delete(user)
+    db.session.commit()
+    session.clear()
+    return jsonify({"message": "Account deleted successfully"}), 200
 
 @main_bp.route('/quizzes/<int:quiz_id>', methods=['DELETE'])
 def delete_quiz(quiz_id):

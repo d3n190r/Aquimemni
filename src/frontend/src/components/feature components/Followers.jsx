@@ -130,7 +130,15 @@ function Followers() {
     <div className="container mt-5">
       <div className="row">
         <div className="col-md-8 offset-md-2">
-          <h2 className="mb-4">Follower Management</h2>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h2>Followers</h2>
+            <button
+              className="btn btn-outline-secondary"
+              onClick={() => navigate('/home')}
+            >
+              ← Back to Home
+            </button>
+          </div>
 
           {/* Search Form */}
           <form onSubmit={handleSearch} className="mb-4">
@@ -200,7 +208,7 @@ function Followers() {
                 className={`nav-link ${activeTab === 'followers' ? 'active' : ''}`}
                 onClick={() => setActiveTab('followers')}
               >
-                Your Followers ({followers.length})
+               Followers ({followers.length})
               </button>
             </li>
             <li className="nav-item">
