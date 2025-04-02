@@ -1,12 +1,14 @@
+// src/frontend/src/components/feature components/Followers.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 function Followers() {
-  const [activeTab, setActiveTab] = useState('followers');
+  const [activeTab, setActiveTab] = useState('followers'); // 'followers' | 'following' | 'allUsers'
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // voor de All Users-tab
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [lastSearchTerm, setLastSearchTerm] = useState('');
   const navigate = useNavigate();
@@ -15,6 +17,7 @@ function Followers() {
     const fetchData = async () => {
       await fetchFollowers();
       await fetchFollowing();
+      await fetchAllUsers();
     };
     fetchData();
   }, []);
@@ -43,6 +46,18 @@ function Followers() {
     }
   };
 
+  const fetchAllUsers = async () => {
+    try {
+      const response = await fetch('/api/users/all', { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setAllUsers(data);
+      }
+    } catch (error) {
+      console.error('Error fetching all users:', error);
+    }
+  };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     setSearchPerformed(false);
@@ -59,7 +74,7 @@ function Followers() {
       const response = await fetch(`/api/users/search?q=${encodeURIComponent(trimmedTerm)}`, {
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data);
@@ -77,14 +92,16 @@ function Followers() {
         method: 'POST',
         credentials: 'include'
       });
-      
+
       if (response.ok) {
-        setSearchResults(prev => 
-          prev.map(u => 
-            u.id === userId ? {...u, is_following: true} : u
+        setSearchResults(prev =>
+          prev.map(u =>
+            u.id === userId ? { ...u, is_following: true } : u
           )
         );
         await fetchFollowing();
+        await fetchAllUsers();
+        await fetchFollowers();
       }
     } catch (error) {
       console.error('Follow error:', error);
@@ -97,14 +114,16 @@ function Followers() {
         method: 'POST',
         credentials: 'include'
       });
-      
+
       if (response.ok) {
-        setSearchResults(prev => 
-          prev.map(u => 
-            u.id === userId ? {...u, is_following: false} : u
+        setSearchResults(prev =>
+          prev.map(u =>
+            u.id === userId ? { ...u, is_following: false } : u
           )
         );
         await fetchFollowing();
+        await fetchAllUsers();
+        await fetchFollowers();
       }
     } catch (error) {
       console.error('Unfollow error:', error);
@@ -117,9 +136,11 @@ function Followers() {
         method: 'DELETE',
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         await fetchFollowers();
+        await fetchFollowing();
+        await fetchAllUsers();
       }
     } catch (error) {
       console.error('Error removing follower:', error);
@@ -130,6 +151,7 @@ function Followers() {
     <div className="container mt-5">
       <div className="row">
         <div className="col-md-8 offset-md-2">
+          {/* Header met Return to Home knop volgens origineel design */}
           <div className="d-flex justify-content-between align-items-center mb-4">
             <h2>Followers</h2>
             <button
@@ -195,8 +217,8 @@ function Followers() {
             </div>
           ) : searchPerformed && (
             <div className="alert alert-info mb-4">
-              {lastSearchTerm ? 
-                `No users found matching "${lastSearchTerm}"` : 
+              {lastSearchTerm ?
+                `No users found matching "${lastSearchTerm}"` :
                 "Please enter a search term"}
             </div>
           )}
@@ -208,7 +230,7 @@ function Followers() {
                 className={`nav-link ${activeTab === 'followers' ? 'active' : ''}`}
                 onClick={() => setActiveTab('followers')}
               >
-               Followers ({followers.length})
+                Followers ({followers.length})
               </button>
             </li>
             <li className="nav-item">
@@ -219,11 +241,19 @@ function Followers() {
                 Following ({following.length})
               </button>
             </li>
+            <li className="nav-item">
+              <button
+                className={`nav-link ${activeTab === 'allUsers' ? 'active' : ''}`}
+                onClick={() => setActiveTab('allUsers')}
+              >
+                All Users ({allUsers.length})
+              </button>
+            </li>
           </ul>
 
           {/* Followers List */}
           {activeTab === 'followers' && (
-            <div className="card">
+            <div className="card mb-4">
               <div className="card-body">
                 {followers.length === 0 ? (
                   <p className="text-muted">No followers yet. Start sharing your quizzes to get followers!</p>
@@ -240,12 +270,23 @@ function Followers() {
                           />
                           <span className="fw-bold">{user.username}</span>
                         </div>
-                        <button
-                          className="btn btn-outline-danger btn-sm"
-                          onClick={() => handleRemoveFollower(user.id)}
-                        >
-                          Remove
-                        </button>
+                        <div className="d-flex gap-2">
+                          {/* Follow Back knop tonen als jij de volger nog niet volgt */}
+                          {!user.is_following && (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleFollow(user.id)}
+                            >
+                              Follow Back
+                            </button>
+                          )}
+                          <button
+                            className="btn btn-outline-danger btn-sm"
+                            onClick={() => handleRemoveFollower(user.id)}
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -256,7 +297,7 @@ function Followers() {
 
           {/* Following List */}
           {activeTab === 'following' && (
-            <div className="card">
+            <div className="card mb-4">
               <div className="card-body">
                 {following.length === 0 ? (
                   <p className="text-muted">You're not following anyone yet. Search for users to follow!</p>
@@ -286,6 +327,49 @@ function Followers() {
               </div>
             </div>
           )}
+
+          {/* All Users List */}
+          {activeTab === 'allUsers' && (
+            <div className="card mb-4">
+              <div className="card-body">
+                {allUsers.length === 0 ? (
+                  <p className="text-muted">No users found.</p>
+                ) : (
+                  <ul className="list-group">
+                    {allUsers.map(user => (
+                      <li key={user.id} className="list-group-item d-flex justify-content-between align-items-center">
+                        <div className="d-flex align-items-center">
+                          <img
+                            src={`/avatars/avatar${user.avatar || 1}.png`}
+                            alt="User avatar"
+                            className="rounded-circle me-3"
+                            style={{ width: '40px', height: '40px' }}
+                          />
+                          <span className="fw-bold">{user.username}</span>
+                        </div>
+                        {user.is_following ? (
+                          <button
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={() => handleUnfollow(user.id)}
+                          >
+                            Following
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleFollow(user.id)}
+                          >
+                            Follow
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
