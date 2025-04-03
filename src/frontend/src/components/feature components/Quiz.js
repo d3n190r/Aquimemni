@@ -23,7 +23,7 @@ function Quiz({ onLogout }) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
   const [showScore, setShowScore] = useState(false);
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [selectedAnswers, setSelectedAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(15);
   const [questions, setQuestions] = useState([]);
   const navigate = useNavigate();
@@ -109,11 +109,15 @@ function Quiz({ onLogout }) {
    * @param {number} optionIndex - Index van geselecteerd antwoord
    * @desc Markeert selectie alleen als timer actief is
    */
-  const handleAnswer = (optionIndex) => {
-    if (timeLeft > 0) {
-      setSelectedAnswer(optionIndex);
-    }
-  };
+    const handleAnswer = (optionIndex) => {
+      if (timeLeft > 0) {
+        setSelectedAnswers(prev => {
+          const newAnswers = [...prev];
+          newAnswers[currentQuestion] = optionIndex;
+          return newAnswers;
+        });
+      }
+    };
 
   /**
    * Shuffle Array Utility
@@ -129,23 +133,24 @@ function Quiz({ onLogout }) {
    * - State-reset voor volgende vraag
    * - Eindscore weergave
    */
-  const handleNext = () => {
-    let answerResult = "Wrong";
-    if (selectedAnswer === questions[currentQuestion]?.correct) {
-      setScore(score + 1);
-      answerResult = "Correct";
-    }
+const handleNext = () => {
+  let answerResult = "Wrong";
+  const currentAnswer = selectedAnswers[currentQuestion];
 
-    setAnswerStatus(prevStatus => [...prevStatus, answerResult]);
-    setSelectedAnswer(null);
-    setTimeLeft(15);
+  if (currentAnswer === questions[currentQuestion]?.correct) {
+    setScore(score + 1);
+    answerResult = "Correct";
+  }
 
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-    } else {
-      setShowScore(true);
-    }
-  };
+  setAnswerStatus(prev => [...prev, answerResult]);
+  setTimeLeft(15);
+
+  if (currentQuestion < questions.length - 1) {
+    setCurrentQuestion(prev => prev + 1);
+  } else {
+    setShowScore(true);
+  }
+};
 
   /**
    * Authenticatie Check Effect
@@ -206,45 +211,71 @@ function Quiz({ onLogout }) {
           </button>
         </div>
       ) : showScore ? (
-      <div className="container">
-        <div className="alert alert-success text-center">
-          <h3>Simulation Complete!</h3>
-          <p className="display-4">
-            Score: {score}/{questions.length}
-          </p>
-          <p className="display-4">
-          </p>
-          <div className="mt-3">
-            <button
-              className="btn btn-primary me-2"
-              onClick={() => {
-                setCurrentQuestion(0);
-                setScore(0);
-                setShowScore(false);
-                setSelectedAnswer(null);
-                setAnswerStatus([]);
-              }}
-            >
-              Retry Quiz
-            </button>
-                  <p></p>
+  <div className="quiz-results">
+    {/* Score Header */}
+    <div className="result-header p-4 bg-primary text-white rounded-3 text-center">
+      <h2 className="mb-3">🎉 Quiz Completed! 🎉</h2>
+      <div className="score-display bg-white p-3 rounded-pill shadow">
+        <span className="display-2 fw-bold text-dark">{score}</span>
+        <span className="fs-3 text-muted">/{questions.length}</span>
+      </div>
+
+      <div className="mt-4">
+        <button
+          className="btn btn-light btn-lg mx-2"
+          onClick={() => {
+            setCurrentQuestion(0);
+            setScore(0);
+            setShowScore(false);
+            setSelectedAnswers([]);
+            setAnswerStatus([]);
+          }}
+        >
+          ↻ Retry Quiz
+        </button>
+        <button
+          className="btn btn-outline-light btn-lg"
+          onClick={() => navigate('/home')}
+        >
+          🏠 Back to Home
+        </button>
+      </div>
+    </div>
+
+    {/* Question Cards */}
+    <div className="row row-cols-1 row-cols-md-2 g-4 mt-4">
+      {questions.map((q, index) => (
+        <div className="col" key={index}>
+          <div className={`card h-100 shadow-sm ${answerStatus[index] === 'Correct' ? 'border-success' : 'border-danger'}`}>
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <span>Question {index + 1}</span>
+              <span className={`badge ${answerStatus[index] === 'Correct' ? 'bg-success' : 'bg-danger'}`}>
+                {answerStatus[index]} {answerStatus[index] === 'Correct' ? '✓' : '✗'}
+              </span>
+            </div>
+            <div className="card-body">
+              <h5 className="card-title">{q.question}</h5>
+              <div className="mt-3">
+                <p className="text-success mb-1">
+                  <strong>Correct:</strong> {q.options[q.correct]}
+                </p>
+                {answerStatus[index] !== 'Correct' && (
+                  <p className="text-danger mb-0">
+                    <strong>Your answer:</strong> {
+                      selectedAnswers[index] !== undefined
+                        ? q.options[selectedAnswers[index]]
+                        : 'No answer given'
+                    }
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-          {/*<!-- (START) Answer per question -->*/}
-          <div>
-                <section>
-                {Array.from({ length: questions.length }, (_, i) =>         <div className="alert alert-info text-center">
-                    <p className="display-5">
-                        Question {i+1}: {questions[i].text}
-                        </p><p className="display-6">
-                        {getDetailledScore(i)}
-                    </p>
-                </div>)}
-                </section>
-            </div>
-          {/*<!-- (END) Answer per question --> */}
-      </div>
-      ) : (
+      ))}
+    </div>
+  </div>
+) : (
         <div>
           <div className="quiz-header mb-4">
             <div className="d-flex justify-content-between align-items-center">
@@ -274,7 +305,7 @@ function Quiz({ onLogout }) {
                 key={index}
                 onClick={() => handleAnswer(index)}
                 className={`option-button btn btn-outline-primary ${
-                  selectedAnswer === index ? 'active' : ''
+                  selectedAnswers[currentQuestion] === index ? 'active' : ''
                 } ${
                   timeLeft === 0 && index === questions[currentQuestion].correct 
                     ? 'correct-answer' 
@@ -294,7 +325,7 @@ function Quiz({ onLogout }) {
             <button
               className="btn btn-primary btn-lg"
               onClick={handleNext}
-              disabled={selectedAnswer === null && timeLeft > 0}
+              disabled={selectedAnswers[currentQuestion] === undefined && timeLeft > 0}
             >
               {currentQuestion === questions.length - 1
                 ? 'View Results'

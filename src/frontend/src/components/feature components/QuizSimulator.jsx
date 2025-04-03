@@ -9,7 +9,7 @@ function QuizSimulator() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
   const [showScore, setShowScore] = useState(false);
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [selectedAnswers, setSelectedAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(15);
   const navigate = useNavigate();
   const [answerStatus, setAnswerStatus] = useState([]);
@@ -52,17 +52,23 @@ function QuizSimulator() {
     fetchQuiz();
   }, [quizId, navigate]);
 
-  // Initialize default antwoord voor slider en tekstinvoer als er een nieuwe vraag laadt
+  // Initialize default answers
   useEffect(() => {
     if (quiz && quiz.questions && quiz.questions.length > 0) {
       const currentQ = quiz.questions[currentQuestion];
-      if (currentQ.type === 'slider' && selectedAnswer === null) {
-        setSelectedAnswer(currentQ.min);
-      } else if (currentQ.type === 'text_input' && selectedAnswer === null) {
-        setSelectedAnswer('');
-      }
+      setSelectedAnswers(prev => {
+        const newAnswers = [...prev];
+        if (typeof newAnswers[currentQuestion] === 'undefined') {
+          if (currentQ.type === 'slider') {
+            newAnswers[currentQuestion] = currentQ.min;
+          } else if (currentQ.type === 'text_input') {
+            newAnswers[currentQuestion] = '';
+          }
+        }
+        return newAnswers;
+      });
     }
-  }, [currentQuestion, quiz, selectedAnswer]);
+  }, [currentQuestion, quiz]);
 
   const formatTime = (seconds) => {
     return `${Math.floor(seconds / 60)
@@ -73,34 +79,29 @@ function QuizSimulator() {
   const handleNext = () => {
     const currentQ = quiz.questions[currentQuestion];
     let answerResult = "Wrong";
+    const currentAnswer = selectedAnswers[currentQuestion];
 
     if (currentQ.type === 'multiple_choice') {
-      // Zoek de index van het juiste antwoord
       const correctIndex = currentQ.options.findIndex(opt => opt.is_correct);
-      if (selectedAnswer === correctIndex) {
+      if (currentAnswer === correctIndex) {
         answerResult = "Correct";
         setScore(prev => prev + 1);
       }
     } else if (currentQ.type === 'text_input') {
-      // Converteer beide antwoorden naar lower-case strings en trim spaties
-      const userText = String(selectedAnswer).trim().toLowerCase();
+      const userText = String(currentAnswer).trim().toLowerCase();
       const correctText = String(currentQ.correct_answer || '').trim().toLowerCase();
       if (userText === correctText && userText !== '') {
         answerResult = "Correct";
         setScore(prev => prev + 1);
       }
     } else if (currentQ.type === 'slider') {
-      // Vergelijk de numerieke waarden
-      if (Number(selectedAnswer) === Number(currentQ.correct_value)) {
+      if (Number(currentAnswer) === Number(currentQ.correct_value)) {
         answerResult = "Correct";
         setScore(prev => prev + 1);
       }
     }
 
     setAnswerStatus(prevStatus => [...prevStatus, answerResult]);
-
-    // Reset geselecteerd antwoord en timer
-    setSelectedAnswer(null);
     setTimeLeft(15);
 
     if (currentQuestion < quiz.questions.length - 1) {
@@ -115,25 +116,17 @@ function QuizSimulator() {
 
   const currentQ = quiz.questions[currentQuestion];
 
-  /**
-   * Returns the text used to display which questions you got wrong/right
-   *
-   * @param questionNumber The number of the question you want information on
-   * @returns {*|string} The text that has to be shown to the user
-   */
-  const getDetailledScore = (questionNumber) => {
-    const result = answerStatus[questionNumber];
-    if (quiz.questions[questionNumber].type === 'multiple_choice'){
-        const index = quiz.questions[questionNumber].options.findIndex(opt => opt.is_correct)
-        return result + ", the answer was: " + quiz.questions[questionNumber].options[index].text;
-    } else if (quiz.questions[questionNumber].type === 'text_input'){
-        return result + ", the answer was: " + quiz.questions[questionNumber].correct_answer;
-    } else if (quiz.questions[questionNumber].type === 'slider') {
-        return result + ", the answer was: " + quiz.questions[questionNumber].correct_value;
-    }
-    return answerStatus[questionNumber] + ", the answer is unknown to me.";
-};
+  const getUserAnswer = (question, index) => {
+    if (answerStatus[index] === 'Correct') return '-';
+    const answer = selectedAnswers[index];
 
+    if (question.type === 'multiple_choice') {
+      return typeof answer !== 'undefined'
+        ? question.options[answer]?.text
+        : 'No answer selected';
+    }
+    return typeof answer !== 'undefined' ? answer : 'No answer given';
+  };
 
   return (
     <div className="container quiz-container mt-4">
@@ -147,39 +140,73 @@ function QuizSimulator() {
       </div>
 
       {showScore ? (
-      <div className="container">
-        <div className="alert alert-success text-center">
-          <h3>Simulation Complete!</h3>
-          <p className="display-4">
-            Score: {score}/{quiz.questions.length}
-          </p>
-          <div className="mt-3">
-            <button
-              className="btn btn-primary me-2"
-              onClick={() => {
-                setCurrentQuestion(0);
-                setScore(0);
-                setShowScore(false);
-                setSelectedAnswer(null);
-                setAnswerStatus([]);
-              }}
-            >
-              Retry Quiz
-            </button>
+        <div className="quiz-results">
+          <div className="result-header p-4 bg-primary text-white rounded-3 text-center">
+            <h2 className="mb-3">🎉 Simulation Complete! 🎉</h2>
+            <div className="score-display bg-white p-3 rounded-pill shadow">
+              <span className="display-2 fw-bold text-dark">{score}</span>
+              <span className="fs-3 text-muted">/{quiz.questions.length}</span>
+            </div>
+
+            <div className="mt-4">
+              <button
+                className="btn btn-light btn-lg mx-2"
+                onClick={() => {
+                  setCurrentQuestion(0);
+                  setScore(0);
+                  setShowScore(false);
+                  setSelectedAnswers([]);
+                  setAnswerStatus([]);
+                }}
+              >
+                ↻ Retry Quiz
+              </button>
+              <button
+                className="btn btn-outline-light btn-lg"
+                onClick={() => navigate('/my-quizzes')}
+              >
+                🏠 Back to My Quizzes
+              </button>
+            </div>
+          </div>
+
+          <div className="row row-cols-1 row-cols-md-2 g-4 mt-4">
+            {quiz.questions.map((q, index) => {
+              const isCorrect = answerStatus[index] === 'Correct';
+              const correctAnswer = q.type === 'multiple_choice'
+                ? q.options.find(opt => opt.is_correct)?.text
+                : q.type === 'text_input'
+                ? q.correct_answer
+                : q.correct_value;
+
+              return (
+                <div className="col" key={index}>
+                  <div className={`card h-100 shadow-sm ${isCorrect ? 'border-success' : 'border-danger'}`}>
+                    <div className="card-header d-flex justify-content-between align-items-center">
+                      <span>Question {index + 1}</span>
+                      <span className={`badge ${isCorrect ? 'bg-success' : 'bg-danger'}`}>
+                        {answerStatus[index]} {isCorrect ? '✓' : '✗'}
+                      </span>
+                    </div>
+                    <div className="card-body">
+                      <h5 className="card-title">{q.text}</h5>
+                      <div className="mt-3">
+                        <p className="text-success mb-1">
+                          <strong>Correct Answer:</strong> {correctAnswer}
+                        </p>
+                        {!isCorrect && (
+                          <p className="text-danger mb-0">
+                            <strong>Your Answer:</strong> {getUserAnswer(q, index)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-          {/*<!-- (START) Answer per question -->*/}
-          <div className="alert alert-info text-center">
-                <h3> Short overview <br></br> ---</h3>
-                {Array.from({ length: quiz.questions.length }, (_, i) =>         <div>
-                    <p className="display-7" style={{fontSize:30}}>
-                      <b>Question {i+1}:</b> {quiz.questions[i].text}
-                        </p><p className="display-7" style={{color:"Black", fontFamily:"initial", fontSize:28}}>
-                        {getDetailledScore(i)} </p><h3> --- </h3>
-                </div>)}
-            </div>
-          {/*<!-- (END) Answer per question --> */}
-      </div>
       ) : (
         <div>
           <div className="quiz-header mb-4">
@@ -197,14 +224,19 @@ function QuizSimulator() {
 
           <h4 className="mb-4">{currentQ.text}</h4>
 
-          {/* Multiple Choice */}
           {currentQ.type === 'multiple_choice' && (
             <div className="options-grid">
               {currentQ.options.map((option, index) => (
                 <button
                   key={index}
-                  onClick={() => setSelectedAnswer(index)}
-                  className={`option-button btn btn-outline-primary ${selectedAnswer === index ? 'active' : ''} ${timeLeft === 0 && option.is_correct ? 'correct-answer' : ''}`}
+                  onClick={() => setSelectedAnswers(prev => {
+                    const newAnswers = [...prev];
+                    newAnswers[currentQuestion] = index;
+                    return newAnswers;
+                  })}
+                  className={`option-button btn btn-outline-primary
+                    ${selectedAnswers[currentQuestion] === index ? 'active' : ''}
+                    ${timeLeft === 0 && option.is_correct ? 'correct-answer' : ''}`}
                   disabled={timeLeft === 0}
                 >
                   {option.text}
@@ -216,7 +248,6 @@ function QuizSimulator() {
             </div>
           )}
 
-          {/* Text Input */}
           {currentQ.type === 'text_input' && (
             <div className="mb-3">
               <label htmlFor="textAnswer" className="form-label">Your Answer:</label>
@@ -224,18 +255,21 @@ function QuizSimulator() {
                 type="text"
                 id="textAnswer"
                 className="form-control"
-                value={selectedAnswer !== null ? selectedAnswer : ''}
-                onChange={(e) => setSelectedAnswer(e.target.value)}
+                value={selectedAnswers[currentQuestion] || ''}
+                onChange={(e) => setSelectedAnswers(prev => {
+                  const newAnswers = [...prev];
+                  newAnswers[currentQuestion] = e.target.value;
+                  return newAnswers;
+                })}
                 disabled={timeLeft === 0}
               />
             </div>
           )}
 
-          {/* Slider */}
           {currentQ.type === 'slider' && (
             <div className="mb-3">
               <label htmlFor="sliderAnswer" className="form-label">
-                Your Answer: {selectedAnswer !== null ? selectedAnswer : currentQ.min}
+                Your Answer: {selectedAnswers[currentQuestion] ?? currentQ.min}
               </label>
               <input
                 type="range"
@@ -244,8 +278,12 @@ function QuizSimulator() {
                 min={currentQ.min}
                 max={currentQ.max}
                 step={currentQ.step}
-                value={selectedAnswer !== null ? selectedAnswer : currentQ.min}
-                onChange={(e) => setSelectedAnswer(parseInt(e.target.value, 10))}
+                value={selectedAnswers[currentQuestion] ?? currentQ.min}
+                onChange={(e) => setSelectedAnswers(prev => {
+                  const newAnswers = [...prev];
+                  newAnswers[currentQuestion] = parseInt(e.target.value, 10);
+                  return newAnswers;
+                })}
                 disabled={timeLeft === 0}
               />
             </div>
@@ -255,7 +293,11 @@ function QuizSimulator() {
             <button
               className="btn btn-primary btn-lg"
               onClick={handleNext}
-              disabled={(selectedAnswer === null || selectedAnswer === '') && timeLeft > 0}
+              disabled={
+                (typeof selectedAnswers[currentQuestion] === 'undefined' ||
+                 selectedAnswers[currentQuestion] === '') &&
+                timeLeft > 0
+              }
             >
               {currentQuestion === quiz.questions.length - 1
                 ? 'Finish Simulation'

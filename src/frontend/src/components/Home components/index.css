@@ -6,7 +6,7 @@
 }
 
 .text-danger {
-  animation: pulse 1s infinite;
+  color: #dc3545 !important;
 }
 
 /* Quiz specifieke styling */
@@ -160,4 +160,35 @@ progress::-webkit-progress-value {
 
 .alert {
   animation: slideIn 0.3s ease-out;
+}
+
+/* Quiz Results */
+.quiz-results {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.result-header {
+  background: linear-gradient(135deg, #4a90e2, #3066be);
+  margin-bottom: 2rem;
+}
+
+.score-display {
+  display: inline-block;
+  padding: 0.5rem 2rem;
+  margin: 1rem 0;
+}
+
+.question-card {
+  transition: transform 0.2s;
+}
+
+.question-card:hover {
+  transform: translateY(-3px);
+}
+
+.card-title {
+  font-size: 1.1rem;
+  color: #2c3e50;
 }
