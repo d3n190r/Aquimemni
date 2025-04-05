@@ -3,3 +3,4 @@ migrations
 flask_session
 src/flask_session
 .idea
+.vscode
