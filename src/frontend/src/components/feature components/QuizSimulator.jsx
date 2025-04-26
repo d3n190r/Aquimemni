@@ -1,9 +1,12 @@
-// frontend/src/components/feature components/QuizSimulator.jsx
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 function QuizSimulator() {
   const { quizId } = useParams();
+  const [searchParams] = useSearchParams();
+  const sessionCode = searchParams.get('session');
+  const isHost = searchParams.get('isHost') === 'true';
+
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -11,13 +14,17 @@ function QuizSimulator() {
   const [showScore, setShowScore] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(15);
+  const [joining, setJoining] = useState(false);
+  const [joined, setJoined] = useState(false);
   const navigate = useNavigate();
   const [answerStatus, setAnswerStatus] = useState([]);
+  const timerId = useRef(null); // NEW
+
 
   // Timer effect
   useEffect(() => {
-    if (!showScore && quiz?.questions?.length > 0) {
-      const timer = setInterval(() => {
+    if (!showScore && quiz?.questions?.length > 0 && (!sessionCode || joined)) {
+      timerId.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             handleNext();
@@ -27,9 +34,9 @@ function QuizSimulator() {
         });
       }, 1000);
 
-      return () => clearInterval(timer);
+      return () => clearInterval(timerId.current);
     }
-  }, [currentQuestion, showScore, quiz]);
+  }, [currentQuestion, showScore, quiz, joined, sessionCode]);
 
   // Fetch quiz data
   useEffect(() => {
@@ -52,6 +59,30 @@ function QuizSimulator() {
     fetchQuiz();
   }, [quizId, navigate]);
 
+  // Session joiner
+  useEffect(() => {
+    if (sessionCode && !isHost && !joined && !joining) {
+      setJoined(true);
+    }
+    if(isHost) {
+      setJoined(true);
+    }
+  }, [sessionCode]);
+
+  const submitSessionScore = async () => {
+    if (!sessionCode) return; // Only if we are in session
+    try {
+      await fetch(`/api/sessions/${sessionCode}/submit-score`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ score })
+      });
+    } catch (err) {
+      console.error('Failed to submit score:', err);
+    }
+  };
+
   // Initialize default answers
   useEffect(() => {
     if (quiz && quiz.questions && quiz.questions.length > 0) {
@@ -70,6 +101,9 @@ function QuizSimulator() {
     }
   }, [currentQuestion, quiz]);
 
+  const currentQ = quiz?.questions?.[currentQuestion];
+  if (!currentQ) return null;
+
   const formatTime = (seconds) => {
     return `${Math.floor(seconds / 60)
       .toString()
@@ -77,6 +111,13 @@ function QuizSimulator() {
   };
 
   const handleNext = () => {
+    clearInterval(timerId.current); // STOP timer immediately
+
+    if (!quiz || !quiz.questions || !quiz.questions[currentQuestion]) {
+      setShowScore(true);
+      return;
+    }
+
     const currentQ = quiz.questions[currentQuestion];
     let answerResult = "Wrong";
     const currentAnswer = selectedAnswers[currentQuestion];
@@ -89,6 +130,7 @@ function QuizSimulator() {
       }
     } else if (currentQ.type === 'text_input') {
       const userText = String(currentAnswer).trim().toLowerCase();
+
       const correctText = String(currentQ.correct_answer || '').trim().toLowerCase();
       if (userText === correctText && userText !== '') {
         answerResult = "Correct";
@@ -108,13 +150,21 @@ function QuizSimulator() {
       setCurrentQuestion(prev => prev + 1);
     } else {
       setShowScore(true);
+      submitSessionScore();
     }
   };
 
-  if (!quiz) return <div className="container mt-4">Loading simulation...</div>;
   if (loading) return <div className="container mt-4">Loading quiz...</div>;
+  if (!quiz) return <div className="container mt-4">Quiz not found.</div>;
 
-  const currentQ = quiz.questions[currentQuestion];
+  if (sessionCode && !joined) {
+    return (
+      <div className="container mt-5 text-center">
+        <div className="spinner-border text-primary mb-3" role="status"></div>
+        <p>Joining session...</p>
+      </div>
+    );
+  }
 
   const getUserAnswer = (question, index) => {
     if (answerStatus[index] === 'Correct') return '-';
@@ -149,7 +199,8 @@ function QuizSimulator() {
             </div>
 
             <div className="mt-4">
-              <button
+              {!sessionCode && (
+                <button
                 className="btn btn-light btn-lg mx-2"
                 onClick={() => {
                   setCurrentQuestion(0);
@@ -158,15 +209,25 @@ function QuizSimulator() {
                   setSelectedAnswers([]);
                   setAnswerStatus([]);
                 }}
-              >
+                >
                 ↻ Retry Quiz
-              </button>
-              <button
-                className="btn btn-outline-light btn-lg"
-                onClick={() => navigate('/my-quizzes')}
-              >
-                🏠 Back to My Quizzes
-              </button>
+                </button>
+              )}
+              <div className='d-flex gap-2 justify-content-center'>              
+                <button
+                  className="btn btn-outline-light btn-lg"
+                  onClick={() => navigate('/my-quizzes')}
+                >
+                  🏠 Back to My Quizzes
+                </button>
+                {( sessionCode && <button
+                  className="btn btn-outline-light btn-lg"
+                  onClick={() => navigate(`/session/${quizId}/results?session=${sessionCode}`)}
+                >
+                  see sessions results
+                </button>
+                )}
+              </div>
             </div>
           </div>
 

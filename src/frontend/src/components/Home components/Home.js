@@ -47,14 +47,13 @@ function Home({ onLogout }) {
 export default Home;
 */
 // frontend/src/components/Home.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import Header from './Header';
 import NavigationSidebar from './NavigationSidebar';
-import { Main, StartQuizSection, HowItWorksSection, ActivitySection } from './Main';
+import { Main, JoinSessionSection, StartQuizSection, HowItWorksSection, ActivitySection } from './Main';
 import { useNavigate } from 'react-router-dom';
 
 const Home = ({ onLogout }) => {
-  const [message, setMessage] = useState('WELOME BACK!');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -63,7 +62,6 @@ const Home = ({ onLogout }) => {
         const resp = await fetch('/api/home', { credentials: 'include' });
         if (resp.ok) {
           const data = await resp.json();
-          setMessage(data.message || '');
         }
       } catch (err) {
         console.error('Error fetching home message', err);
@@ -84,10 +82,10 @@ const Home = ({ onLogout }) => {
       <NavigationSidebar />
       <Main>
         <div className="col-12 d-flex justify-content-between align-items-center mb-4">
-          <h1 className="h3 mb-0 text-primary">{'Welcome Back!' || message }</h1>
+          <h1 className="h3 mb-0 text-primary">{'Welcome Back!'}</h1>
         </div>
 
-        <StartQuizSection onStart={handleStartQuiz} />
+        <JoinSessionSection />
         <ActivitySection />
         <HowItWorksSection />
       </Main>

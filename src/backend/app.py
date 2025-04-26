@@ -13,6 +13,11 @@ from .Questions import (
     MultipleChoiceQuestion
 )
 
+from .session import (
+    QuizSession,
+    SessionParticipant,
+)
+
 followers = db.Table('followers',
                      db.Column('follower_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
                      db.Column('followed_id', db.Integer, db.ForeignKey('users.id'), primary_key=True)
@@ -425,6 +430,7 @@ def handle_profile():
 
     if request.method == 'GET':
         return jsonify({
+            "id": user.id,
             "username": user.username,
             "bio": user.bio,
             "avatar": user.avatar,
@@ -595,6 +601,211 @@ def update_quiz(quiz_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+@main_bp.route('/sessions', methods=['POST'])
+def create_session():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+
+    data = request.get_json()
+    quiz_id = data.get('quiz_id')
+    team_mode = data.get('team_mode', False)  # default = False
+
+    if not quiz_id:
+        return jsonify({'error': 'Quiz ID is required'}), 400
+
+    # Generate code
+    import string, random
+    def generate_code():
+        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+    code = generate_code()
+    while QuizSession.query.filter_by(code=code).first():
+        code = generate_code()
+
+    new_session = QuizSession(
+        quiz_id=quiz_id,
+        host_id=session['user_id'],
+        code=code,
+        team_mode=team_mode
+    )
+    db.session.add(new_session)
+    db.session.commit()
+
+    return jsonify({'message': 'Session created', 'code': code }), 201
+
+@main_bp.route('/sessions/<string:code>/join', methods=['POST'])
+def join_session(code):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+
+    data = request.get_json()
+    team = data.get('team')
+
+    quiz_session = QuizSession.query.filter_by(code=code).first()
+    if not quiz_session:
+        return jsonify({'error': 'Session not found'}), 404
+
+    if quiz_session.started:
+        return jsonify({'error': 'Session already started'}), 403
+
+    existing = SessionParticipant.query.filter_by(
+        session_id=quiz_session.id,
+        user_id=session['user_id']
+    ).first()
+
+    if existing:
+        return jsonify({'message': 'Already joined'}), 200
+
+    participant = SessionParticipant(
+        session_id=quiz_session.id,
+        user_id=session['user_id'],
+        team=team  # Save chosen team
+    )
+    db.session.add(participant)
+    db.session.commit()
+
+    return jsonify({'message': 'Joined session'}), 200
+
+@main_bp.route('/sessions/<string:code>/start', methods=['POST'])
+def start_session(code):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+
+    quiz_session = QuizSession.query.filter_by(code=code).first()
+    if not quiz_session:
+        return jsonify({'error': 'Session not found'}), 404
+
+    if quiz_session.host_id != session['user_id']:
+        return jsonify({'error': 'Only the host can start this session'}), 403
+
+    quiz_session.started = True
+    db.session.commit()
+    return jsonify({'message': 'Session started'}), 200
+
+@main_bp.route('/sessions/<string:code>', methods=['GET'])
+def get_session_info(code):
+    quiz_session = QuizSession.query.filter_by(code=code).first()
+    if not quiz_session:
+        return jsonify({'error': 'Session not found'}), 404
+
+    return jsonify({
+        'code': quiz_session.code,
+        'quiz_id': quiz_session.quiz_id,
+        'host_id': quiz_session.host_id,
+        'started': quiz_session.started,
+        'created_at': quiz_session.created_at.isoformat(),
+        'team_mode': quiz_session.team_mode,
+    })
+
+@main_bp.route('/sessions/<string:code>/participants', methods=['GET'])
+def get_participants(code):
+    quiz_session = QuizSession.query.filter_by(code=code).first()
+    if not quiz_session:
+        return jsonify({'error': 'Session not found'}), 404
+
+    participants = [{
+        'id': p.user.id,
+        'username': p.user.username,
+        'avatar': p.user.avatar,
+        'team': p.team
+    } for p in quiz_session.participants]
+
+    return jsonify(participants)
+
+@main_bp.route('/sessions/<string:code>/submit-score', methods=['POST'])
+def submit_score(code):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+
+    data = request.get_json()
+    score = data.get('score')
+
+    quiz_session = QuizSession.query.filter_by(code=code).first()
+    if not quiz_session:
+        return jsonify({'error': 'Session not found'}), 404
+
+    participant = SessionParticipant.query.filter_by(
+        session_id=quiz_session.id,
+        user_id=session['user_id']
+    ).first()
+
+    if not participant:
+        return jsonify({'error': 'You are not part of this session'}), 403
+
+    participant.score = score
+    db.session.commit()
+    print('commited')
+    return jsonify({'message': 'Score submitted'}), 200
+
+@main_bp.route('/sessions/<string:code>/results', methods=['GET'])
+def get_session_results(code):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+
+    quiz_session = QuizSession.query.filter_by(code=code).first()
+    if not quiz_session:
+        return jsonify({'error': 'Session not found'}), 404
+
+    participants = SessionParticipant.query.filter_by(session_id=quiz_session.id).all()
+
+    results = []
+    for p in participants:
+        results.append({
+            'username': p.user.username,
+            'avatar': p.user.avatar,
+            'score': p.score,
+            'team': p.team
+        })
+
+    return jsonify(results), 200
+
+@main_bp.route('/simulate/<string:code>', methods=['GET'])
+def simulate_session(code):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+
+    quiz_session = QuizSession.query.filter_by(code=code).first()
+    if not quiz_session:
+        return jsonify({'error': 'Session not found'}), 404
+
+    quiz = Quiz.query.get(quiz_session.quiz_id)
+    if not quiz:
+        return jsonify({'error': 'Quiz not found'}), 404
+
+    questions_data = []
+    for question in quiz.questions:
+        q_data = {
+            'id': question.id,
+            'type': question.question_type,
+            'text': question.question_text
+        }
+
+        if question.question_type == 'multiple_choice':
+            q_data['options'] = [{
+                'id': opt.id,
+                'text': opt.text,
+                'is_correct': opt.is_correct
+            } for opt in question.options]
+        elif question.question_type == 'slider':
+            q_data.update({
+                'min': question.min_value,
+                'max': question.max_value,
+                'step': question.step,
+                'correct_value': question.correct_value
+            })
+        elif question.question_type == 'text_input':
+            q_data.update({
+                'max_length': question.max_length,
+                'correct_answer': question.correct_answer
+            })
+
+        questions_data.append(q_data)
+
+    return jsonify({
+        'quiz_id': quiz.id,
+        'quiz_name': quiz.name,
+        'questions': questions_data
+    }), 200
 
 def create_app():
     from .init_flask import create_app as flask_create_app

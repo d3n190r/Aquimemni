@@ -56,6 +56,27 @@ function MyQuizzes() {
     }
   };
 
+  const handleCreateSession = async (quizId, teamMode = false) => {
+    try {
+      const response = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ quiz_id: quizId, team_mode: teamMode })
+      });
+  
+      const data = await response.json();
+      if (response.ok) {
+        navigate(`/session/${data.code}`);
+      } else {
+        alert(data.error || 'Something went wrong.');
+      }
+    } catch (err) {
+      console.error('Failed to create session', err);
+      alert('Network error');
+    }
+  };
+
   const toggleQuizDetails = (quizId) => {
     setExpandedQuizId(expandedQuizId === quizId ? null : quizId);
   };
@@ -130,12 +151,24 @@ function MyQuizzes() {
 
               {expandedQuizId === quiz.id && (
                 <div className="card-body">
-                  <div className="mb-4">
+                  <div className="mb-4 d-flex gap-2">
                     <button
                       className="btn btn-primary"
                       onClick={() => navigate(`/simulate/${quiz.id}`, { state: { quiz } })}
                     >
                       Simulate this quiz
+                    </button>
+                    <button 
+                    className="btn btn-primary"
+                    onClick={() => handleCreateSession(quiz.id,false)}
+                    >
+                      Create Solo Session
+                    </button>
+                    <button 
+                    className="btn btn-primary"
+                    onClick={() => handleCreateSession(quiz.id,true)}
+                    >
+                      Create Team Session
                     </button>
                   </div>
                   <div className="mb-3">

@@ -19,6 +19,8 @@ import Settings from './components/feature components/Settings';
 // Import MyQuizzes component (lijst met eigen quizzes)
 import MyQuizzes from './components/feature components/MyQuizzes';
 import QuizSimulator from './components/feature components/QuizSimulator';
+import QuizSession from './components/feature components/QuizSession';
+import SessionResults from './components/feature components/SessionResults';
 
 /**
  * App Component
@@ -95,10 +97,19 @@ function App() {
         path="/settings"
         element={<Settings />}
       />
-      
+      {/* Route voor de Home pagina */}
+      <Route 
+        path="/session/:code" 
+        element={<QuizSession />} 
+      />
+      {/* Route voor de Home pagina */}
+      <Route 
+        path="/session/:quizId/results" 
+        element={<SessionResults />} 
+      />
       {/* Alle andere routes leiden door naar login */}
       <Route path="*" element={<Navigate to="/login" replace />} />
-    
+      
     </Routes>
   );
 }

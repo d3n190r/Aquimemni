@@ -1,5 +1,6 @@
 // frontend/src/components/MainContent.js
-import React from 'react';
+import React, {useState} from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Main = ({ children }) => {
   return (
@@ -21,6 +22,59 @@ const Main = ({ children }) => {
         </div>
       </div>
     </main>
+  );
+};
+
+const JoinSessionSection = () => {
+  const [inviteInput, setInviteInput] = useState('');
+  const navigate = useNavigate();
+
+  const handleJoinSession = async () => {
+    if (!inviteInput.trim()) return;
+  
+    // Extract code from full link
+    const regex = /session\/([A-Z0-9]+)/i;
+    const match = inviteInput.match(regex);
+  
+    const code = match ? match[1] : inviteInput.trim();
+  
+    try {
+      const res = await fetch(`/api/sessions/${code}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}) // No body needed if solo mode
+      });
+      const data = await res.json();
+      if (res.ok || (res.status === 400 && data.error === 'Already joined')) {
+        navigate(`/session/${code}`);
+      } else {
+        alert(data.error || 'Failed to join session');
+      }
+    } catch (err) {
+      console.error('Failed to join session', err);
+      alert('Network error');
+    }
+  };
+
+  return (
+    <div className="col-12 col-lg-8">
+      <div className="card shadow-sm h-100">
+        <div className="card-body d-flex flex-column align-items-center justify-content-center p-5">
+          <h2 className="mb-4 text-primary">Join a Quiz Session</h2>
+          <input
+            type="text"
+            className="form-control mb-3"
+            placeholder="Paste invite link or enter code"
+            value={inviteInput}
+            onChange={(e) => setInviteInput(e.target.value)}
+          />
+          <button className="btn btn-primary btn-lg" onClick={handleJoinSession}>
+            <i className="bi bi-box-arrow-in-right me-2"></i> Join Session
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -120,4 +174,4 @@ const ActivitySection = () => {
   );
 };
 
-export { Main, StartQuizSection, HowItWorksSection, ActivitySection };
+export { Main, StartQuizSection, JoinSessionSection, HowItWorksSection, ActivitySection };
