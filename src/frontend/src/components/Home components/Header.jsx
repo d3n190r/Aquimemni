@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 const Header = ({ onLogout }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchType, setSearchType] = useState('users'); // 'users' of 'quizzes'
   const [userData, setUserData] = useState({
     username: 'Loading...',
     avatar: 1
@@ -40,25 +42,129 @@ const Header = ({ onLogout }) => {
     }
   };
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
-    console.log('Searching for:', searchQuery);
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const endpoint = searchType === 'users' 
+        ? `/api/users/search?q=${encodeURIComponent(searchQuery)}`
+        : `/api/quizzes/search?q=${encodeURIComponent(searchQuery)}`;
+
+      const response = await fetch(endpoint, { credentials: 'include' });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data);
+      } else if (response.status === 401) {
+        handleLogout();
+      }
+    } catch (err) {
+      console.error('Search failed:', err);
+    }
   };
 
   return (
     <header className="bg-light p-3 shadow-sm fixed-top" style={{ zIndex: 2000 }}>
       <div className="d-flex justify-content-between align-items-center">
-        <form onSubmit={handleSearch} className="d-flex" style={{ width: '60%' }}>
-          <input
-            type="search"
-            className="form-control me-2"
-            placeholder="Search quizzes or users..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <button className="btn btn-outline-primary" type="submit">
-            Search
-          </button>
+        <form onSubmit={handleSearch} className="d-flex position-relative" style={{ width: '60%' }}>
+          <div className="input-group">
+            <select 
+              className="form-select flex-grow-0 w-auto" 
+              value={searchType}
+              onChange={(e) => {
+                setSearchType(e.target.value);
+                setSearchResults([]);
+              }}
+            >
+              <option value="users">Users</option>
+              <option value="quizzes">Quizzes</option>
+            </select>
+            
+            <input
+              type="search"
+              className="form-control"
+              placeholder={`Search ${searchType}...`}
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (!e.target.value) setSearchResults([]);
+              }}
+            />
+            
+            <button className="btn btn-outline-primary" type="submit">
+              Search
+            </button>
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="position-absolute top-100 start-0 end-0 bg-white border mt-1 rounded shadow overflow-hidden">
+              {searchResults.map(result => (
+                searchType === 'users' ? (
+                  <div
+                    key={result.id}
+                    className="p-2 d-flex align-items-center hover-bg-light cursor-pointer gap-2"
+                    onClick={() => {
+                      navigate(`/profile/${result.id}`);
+                      setSearchResults([]);
+                      setSearchQuery('');
+                    }}
+                  >
+                    <img
+                      src={`/avatars/avatar${result.avatar || 1}.png`}
+                      alt={result.username}
+                      style={{ 
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        flexShrink: 0
+                      }}
+                    />
+                    <div className="d-flex flex-column overflow-hidden">
+                      <span className="fw-medium text-truncate">{result.username}</span>
+                      {result.is_following && (
+                        <small className="text-muted">Following</small>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    key={result.id}
+                    className="p-2 d-flex align-items-center hover-bg-light cursor-pointer gap-2"
+                    onClick={() => {
+                      navigate(`/quiz/${result.id}`);
+                      setSearchResults([]);
+                      setSearchQuery('');
+                    }}
+                  >
+                    <div className="position-relative">
+                      <img
+                        src={`/avatars/avatar${result.creator_avatar || 1}.png`}
+                        alt={result.creator}
+                        style={{ 
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '50%',
+                          objectFit: 'cover',
+                          flexShrink: 0
+                        }}
+                      />
+                    </div>
+                    <div className="d-flex flex-column overflow-hidden">
+                      <span className="fw-medium text-truncate">{result.name}</span>
+                      <small className="text-muted text-truncate">
+                        by {result.creator}
+                      </small>
+                    </div>
+                  </div>
+                )
+              ))}
+            </div>
+          )}
         </form>
 
         <div className="dropdown">

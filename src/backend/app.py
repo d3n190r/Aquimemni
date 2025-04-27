@@ -112,6 +112,36 @@ def search_users():
         "is_following": current_user.is_following(u)
     } for u in users]), 200
 
+@main_bp.route('/quizzes/search', methods=['GET'])
+def search_quizzes():
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    search_query = request.args.get('q', '').strip().lower()
+    current_user_id = session['user_id']
+
+    if not search_query:
+        return jsonify([]), 200
+
+    sanitized_query = f"%{search_query.replace('%', '\\%').replace('_', '\\_')}%"
+
+    quizzes = Quiz.query.join(User).filter(
+        Quiz.name.ilike(sanitized_query),
+        Quiz.user_id != current_user_id  # Exclude current user's quizzes
+    ).order_by(
+        Quiz.name.asc()
+    ).limit(10).all()
+
+    quizzes_data = [{
+        "id": quiz.id,
+        "name": quiz.name,
+        "creator": quiz.user.username,
+        "created_at": quiz.created_at.isoformat(),
+        "questions_count": len(quiz.questions),
+        "creator_avatar": quiz.user.avatar
+    } for quiz in quizzes]
+
+    return jsonify(quizzes_data), 200
 
 @main_bp.route('/users/all', methods=['GET'])
 def get_all_users():
