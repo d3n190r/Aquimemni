@@ -123,7 +123,9 @@ def search_quizzes():
     if not search_query:
         return jsonify([]), 200
 
-    sanitized_query = f"%{search_query.replace('%', '\\%').replace('_', '\\_')}%"
+    # Escape % and _ before building the LIKE pattern
+    escaped = search_query.replace("%", r"\%").replace("_", r"\_")
+    sanitized_query = f"%{escaped}%"
 
     quizzes = Quiz.query.join(User).filter(
         Quiz.name.ilike(sanitized_query),
@@ -156,7 +158,6 @@ def get_all_users():
         "is_following": current_user.is_following(u)
     } for u in users]), 200
 
-
 @main_bp.route('/follow/<int:user_id>', methods=['POST'])
 def follow_user(user_id):
     if 'user_id' not in session:
@@ -175,7 +176,6 @@ def follow_user(user_id):
     db.session.commit()
     return jsonify({"message": f"Now following {user_to_follow.username}"}), 200
 
-
 @main_bp.route('/unfollow/<int:user_id>', methods=['POST'])
 def unfollow_user(user_id):
     if 'user_id' not in session:
@@ -190,7 +190,6 @@ def unfollow_user(user_id):
     current_user.unfollow(user_to_unfollow)
     db.session.commit()
     return jsonify({"message": f"Unfollowed {user_to_unfollow.username}"}), 200
-
 
 @main_bp.route('/followers/<int:follower_id>', methods=['DELETE'])
 def remove_follower(follower_id):
@@ -207,7 +206,6 @@ def remove_follower(follower_id):
     db.session.commit()
     return jsonify({"message": "Follower removed successfully"}), 200
 
-
 @main_bp.route('/followers', methods=['GET'])
 def get_followers():
     if 'user_id' not in session:
@@ -221,7 +219,6 @@ def get_followers():
         "is_following": current_user.is_following(u)
     } for u in current_user.followers.all()]), 200
 
-
 @main_bp.route('/following', methods=['GET'])
 def get_following():
     if 'user_id' not in session:
@@ -233,7 +230,6 @@ def get_following():
         "username": u.username,
         "avatar": u.avatar
     } for u in user.followed.all()]), 200
-
 
 @main_bp.route('/signup', methods=['POST'])
 def signup():
