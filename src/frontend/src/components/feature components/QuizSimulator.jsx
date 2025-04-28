@@ -214,12 +214,6 @@ function QuizSimulator() {
                 </button>
               )}
               <div className='d-flex gap-2 justify-content-center'>              
-                <button
-                  className="btn btn-outline-light btn-lg"
-                  onClick={() => navigate('/my-quizzes')}
-                >
-                  🏠 Back to My Quizzes
-                </button>
                 {( sessionCode && <button
                   className="btn btn-outline-light btn-lg"
                   onClick={() => navigate(`/session/${quizId}/results?session=${sessionCode}`)}

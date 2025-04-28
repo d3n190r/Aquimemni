@@ -192,3 +192,15 @@ progress::-webkit-progress-value {
   font-size: 1.1rem;
   color: #2c3e50;
 }
+
+/* dropdown‐search result styling */
+.search-result-item {
+  padding: 0.5rem 1rem;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+}
+
+.search-result-item:hover {
+  background-color: #f1f1f1;
+  color: #0d6efd;
+}

@@ -1,6 +1,6 @@
 // frontend/src/App.js
 import React, { useState } from 'react';
-import { Routes, Route, Navigate, Prot } from 'react-router-dom';
+import { Routes, Route, Navigate} from 'react-router-dom';
 
 // Import authenticatie componenten
 import Signup from './components/Signup';
@@ -15,6 +15,8 @@ import Followers from './components/feature components/Followers';
 import QuizMaker from './components/feature components/QuizMaker';
 import Profile from './components/feature components/Profile';
 import Settings from './components/feature components/Settings';
+import QuizDetails from './components/feature components/QuizDetails';
+console.log('QuizDetails is', QuizDetails);
 
 // Import MyQuizzes component (lijst met eigen quizzes)
 import MyQuizzes from './components/feature components/MyQuizzes';
@@ -72,6 +74,9 @@ function App() {
       
       {/* Route voor volgers */}
       <Route path="/followers" element={<Followers />} />
+
+      {/* Route naar quizdetail */}
+      //<Route path="/quiz/:quizId" element={<QuizDetails />}/>
       
       {/* Route voor Quiz Maker */}
       <Route path="/quiz-maker" element={<QuizMaker />} />

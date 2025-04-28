@@ -46,28 +46,30 @@ function Home({ onLogout }) {
 
 export default Home;
 */
-// frontend/src/components/Home.js
+// src/frontend/src/components/Home components/Home.js
 import React, { useEffect } from 'react';
 import Header from './Header';
 import NavigationSidebar from './NavigationSidebar';
-import { Main, JoinSessionSection, StartQuizSection, HowItWorksSection, ActivitySection } from './Main';
+import {
+  Main,
+  JoinSessionSection,
+  StartQuizSection,
+  HowItWorksSection,
+  ActivitySection
+} from './Main';
 import { useNavigate } from 'react-router-dom';
 
 const Home = ({ onLogout }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchMessage = async () => {
+    (async () => {
       try {
-        const resp = await fetch('/api/home', { credentials: 'include' });
-        if (resp.ok) {
-          const data = await resp.json();
-        }
+        await fetch('/api/home', { credentials: 'include' });
       } catch (err) {
         console.error('Error fetching home message', err);
       }
-    };
-    fetchMessage();
+    })();
   }, []);
 
   const handleStartQuiz = () => navigate('/quiz');
@@ -81,8 +83,11 @@ const Home = ({ onLogout }) => {
       <Header />
       <NavigationSidebar />
       <Main>
-        <div className="col-12 d-flex justify-content-between align-items-center mb-4">
-          <h1 className="h3 mb-0 text-primary">{'Welcome Back!'}</h1>
+        <div
+          className="col-12 d-flex justify-content-between align-items-center mb-4"
+          style={{ paddingTop: '20px' /* 20px naar beneden verschuiving */ }}
+        >
+          <h1 className="h3 mb-0 text-primary">Welcome Back!</h1>
         </div>
 
         <JoinSessionSection />

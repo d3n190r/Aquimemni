@@ -4,6 +4,8 @@ from .init_flask import db, main_bp
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from flask_cors import CORS  # Add CORS support
+from sqlalchemy import or_
+
 
 from .Questions import (
     Question,
@@ -117,33 +119,39 @@ def search_quizzes():
     if 'user_id' not in session:
         return jsonify({"error": "Not logged in"}), 401
 
-    search_query = request.args.get('q', '').strip().lower()
-    current_user_id = session['user_id']
-
-    if not search_query:
+    q = request.args.get('q', '').strip()
+    if not q:
         return jsonify([]), 200
 
-    # Escape % and _ before building the LIKE pattern
-    escaped = search_query.replace("%", r"\%").replace("_", r"\_")
-    sanitized_query = f"%{escaped}%"
+    # prefix‐match voor name én username
+    name_pattern = f"{q}%"
+    user_pattern = f"{q}%"
 
-    quizzes = Quiz.query.join(User).filter(
-        Quiz.name.ilike(sanitized_query),
-        Quiz.user_id != current_user_id  # Exclude current user's quizzes
-    ).order_by(
-        Quiz.name.asc()
-    ).limit(10).all()
+    quizzes = (
+        Quiz.query
+            .join(User)
+            .filter(
+                Quiz.user_id != session['user_id'],
+                or_(
+                    Quiz.name.ilike(name_pattern),
+                    User.username.ilike(user_pattern)
+                )
+            )
+            .order_by(Quiz.name.asc())
+            .limit(10)
+            .all()
+    )
 
-    quizzes_data = [{
+    result = [{
         "id": quiz.id,
         "name": quiz.name,
         "creator": quiz.user.username,
+        "creator_avatar": quiz.user.avatar,
         "created_at": quiz.created_at.isoformat(),
-        "questions_count": len(quiz.questions),
-        "creator_avatar": quiz.user.avatar
+        "questions_count": len(quiz.questions)
     } for quiz in quizzes]
 
-    return jsonify(quizzes_data), 200
+    return jsonify(result), 200
 
 @main_bp.route('/users/all', methods=['GET'])
 def get_all_users():
@@ -441,6 +449,8 @@ def get_quiz(quiz_id):
         "id": quiz.id,
         "name": quiz.name,
         "created_at": quiz.created_at.isoformat(),
+        "creator": quiz.user.username,
+        "creator_avatar": quiz.user.avatar,
         "questions": questions
     })
 
