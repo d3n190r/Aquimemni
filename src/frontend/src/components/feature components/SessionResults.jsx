@@ -101,6 +101,9 @@ const SessionResults = () => {
       )}
 
       <div className="mt-5 text-center">
+        <button className="btn btn-outline-primary btn-lg me-3" onClick={() => navigate(`/simulate/${quizId}?session=${sessionCode}&showResults=true`)}>
+          ← Back to My Results
+        </button>
         <button className="btn btn-primary btn-lg" onClick={() => navigate('/home')}>
           ← Back to Home
         </button>

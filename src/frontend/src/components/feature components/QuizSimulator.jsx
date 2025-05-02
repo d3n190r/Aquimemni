@@ -69,6 +69,14 @@ function QuizSimulator() {
     }
   }, [sessionCode]);
 
+  // Check if we should show results directly
+  useEffect(() => {
+    const showResults = searchParams.get('showResults') === 'true';
+    if (showResults) {
+      setShowScore(true);
+    }
+  }, [searchParams]);
+
   const submitSessionScore = async () => {
     if (!sessionCode) return; // Only if we are in session
     try {
