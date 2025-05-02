@@ -1,19 +1,21 @@
 // frontend/src/components/NavigationSidebar.js
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import './index.css';
+import './index.css'; // Keep existing CSS imports if needed
 
 /**
  * NavigationSidebar Component
  *
- * Deze component rendert een zijbalk met navigatielinks naar de belangrijkste pagina's van de applicatie.
- * De links omvatten: Home, Quiz Maker, MyQuizzes, Profile en Followers.
+ * Renders a sidebar with navigation links.
+ * Styling is passed inline from Home.js to ensure correct flexbox behavior.
  */
-const NavigationSidebar = () => {
+const NavigationSidebar = ({ style }) => { // Accept style prop from Home.js
   return (
+    // Apply styles passed from parent for flex layout control
+    // Removed fixed-start and margin-top, relying on flexbox in Home.js
     <nav
-      className="bg-light vh-100 shadow-sm fixed-start"
-      style={{ width: '250px', marginTop: '70px', zIndex: 1500 }}
+      className="bg-light shadow-sm" // Keep base Bootstrap classes
+      style={style} // Apply dynamic styles (width, height, overflow)
     >
       <div className="p-3">
         <h5 className="text-muted mb-3">Navigation</h5>
@@ -54,6 +56,7 @@ const NavigationSidebar = () => {
               Followers
             </NavLink>
           </li>
+          {/* Add other links as needed */}
         </ul>
       </div>
     </nav>

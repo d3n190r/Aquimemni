@@ -1,99 +1,75 @@
-// frontend/src/components/Home.js
-/*import React from 'react'
-import { useEffect, useState } from 'react';
-
-function Home({ onLogout }) {
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    // Bij laden van de component, haal een bericht op van de server (optioneel)
-    const fetchMessage = async () => {
-      try {
-        const resp = await fetch('/api/home', { credentials: 'include' });
-        if (resp.ok) {
-          const data = await resp.json();
-          setMessage(data.message || '');
-        } else {
-          setMessage('Je bent niet (meer) ingelogd.');
-        }
-      } catch (err) {
-        console.error('Error fetching home message', err);
-      }
-    };
-    fetchMessage();
-  }, []);
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
-    } catch (err) {
-      console.error('Logout request failed', err);
-    }
-    // Verwijder eventuele lokale auth-status en navigeer terug naar login:
-    onLogout && onLogout();
-  };
-
-  return (
-    <div className="container" style={{ marginTop: '50px' }}>
-      <h2>Home</h2>
-      {message && <p>{message}</p>}
-      <button className="btn btn-secondary" onClick={handleLogout}>
-        Uitloggen
-      </button>
-    </div>
-  );
-}
-
-export default Home;
-*/
 // src/frontend/src/components/Home components/Home.js
 import React, { useEffect } from 'react';
-import Header from './Header';
-import NavigationSidebar from './NavigationSidebar';
-import {
-  Main,
-  JoinSessionSection,
-  StartQuizSection,
-  HowItWorksSection,
-  ActivitySection
-} from './Main';
+import Header from './Header'; // Assuming Header component exists and is correct
+import NavigationSidebar from './NavigationSidebar'; // Assuming Sidebar component exists and is correct
+import { Main } from './Main'; // Import the Main component (which renders the sections)
 import { useNavigate } from 'react-router-dom';
+
+// Define approx header height for padding calculation
+const HEADER_HEIGHT = '70px'; // Adjust this value if your header's actual height differs
 
 const Home = ({ onLogout }) => {
   const navigate = useNavigate();
 
+  // Optional: Check authentication status on load
   useEffect(() => {
-    (async () => {
+    const checkAuth = async () => {
       try {
-        await fetch('/api/home', { credentials: 'include' });
+        const resp = await fetch('/api/home', { credentials: 'include' });
+        if (!resp.ok) {
+          console.warn("Home auth check failed. Status:", resp.status);
+          // Redirect to login if not authenticated
+          if (onLogout) onLogout(); // Clear any local auth state if function provided
+          navigate('/login', { replace: true });
+        }
       } catch (err) {
-        console.error('Error fetching home message', err);
+        console.error('Error during auth check on Home:', err);
+        // Handle network error, maybe redirect?
+         if (onLogout) onLogout();
+         navigate('/login', { replace: true });
       }
-    })();
-  }, []);
+    };
+    checkAuth();
+  }, [navigate, onLogout]); // Add onLogout to dependencies if it can change
 
-  const handleStartQuiz = () => navigate('/quiz');
-  const handleLogout = async () => {
-    await fetch('/api/logout', { method: 'POST', credentials: 'include' });
-    onLogout?.();
+
+  // handleLogout function (if needed by Header or Sidebar, pass it down)
+  const handleLogoutClick = async () => {
+    try {
+        await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+    } catch(err) {
+        console.error("Logout failed:", err);
+    } finally {
+        if (onLogout) onLogout(); // Clear local state via App.js callback
+        navigate('/login', { replace: true }); // Redirect to login
+    }
   };
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      <Header />
-      <NavigationSidebar />
-      <Main>
-        <div
-          className="col-12 d-flex justify-content-between align-items-center mb-4"
-          style={{ paddingTop: '20px' /* 20px naar beneden verschuiving */ }}
-        >
-          <h1 className="h3 mb-0 text-primary">Welcome Back!</h1>
-        </div>
+    // Use flexbox to structure the page vertically
+    // Set explicit height and prevent outer div from scrolling
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      {/* Header remains fixed at the top */}
+      <Header onLogout={handleLogoutClick} /> {/* Pass logout handler if Header needs it */}
 
-        <JoinSessionSection />
-        <ActivitySection />
-        <HowItWorksSection />
-      </Main>
+      {/* This div holds the sidebar and main content */}
+      {/* It starts below the header because of the overall flex structure */}
+      <div style={{ display: 'flex', flexGrow: 1, overflow: 'hidden', marginTop: HEADER_HEIGHT /* Make space for fixed header */ }}>
+
+          {/* Sidebar takes fixed width, doesn't grow or shrink */}
+          {/* It now sits correctly within the flex container below the header */}
+          <NavigationSidebar style={{ flexShrink: 0, width: '250px', height: '100%', overflowY: 'auto' }} />
+
+         {/* Main content area wrapper */}
+         {/* flexGrow: 1 makes it take remaining horizontal space */}
+         {/* overflowY: 'auto' allows ONLY this area to scroll vertically if needed */}
+         {/* Padding added internally to the Main component or its container */}
+        <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+             {/* Main component now renders the content sections internally */}
+             {/* Add padding inside Main or its container if needed */}
+            <Main />
+        </div>
+      </div>
     </div>
   );
 };
