@@ -55,6 +55,10 @@ class User(db.Model):
         secondaryjoin=(followers.c.followed_id == id),
         backref=db.backref('followers', lazy='dynamic'), lazy='dynamic'
     )
+    quizzes = db.relationship('Quiz', 
+                             backref="user", 
+                             lazy=True,
+                             cascade='all, delete-orphan')  # Cascade toegevoegd
 
     def is_following(self, user):
         # Ensure user object is valid before filtering
@@ -86,7 +90,6 @@ class Quiz(db.Model):
     name = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete-orphan')
-    user = db.relationship("User", backref="quizzes", lazy=True)
 
 
 # ------------------------------
@@ -912,6 +915,7 @@ def change_password():
         return jsonify({"error": "Could not change password due to an internal error."}), 500
 
 
+# In app.py
 @main_bp.route('/delete-account', methods=['DELETE'])
 def delete_account():
     if 'user_id' not in session:
@@ -926,28 +930,46 @@ def delete_account():
     password = data.get('password')
 
     if not password:
-         return jsonify({"error": "Password required to delete account"}), 400
+        return jsonify({"error": "Password required to delete account"}), 400
 
     if not check_password_hash(user.password_hash, password):
         return jsonify({"error": "Incorrect password"}), 401
 
     try:
-        # Handle related data deletion or anonymization if necessary
-        # Example: Anonymize quizzes instead of deleting?
-        # Quiz.query.filter_by(user_id=user.id).update({"user_id": None})
+        # Verwijder alle followers/following relaties
+        db.session.execute(
+            followers.delete().where(
+                (followers.c.follower_id == user.id) |
+                (followers.c.followed_id == user.id)
+            )
+        )
 
-        # Cascade delete should handle followers/following relationships, quizzes, participations etc.
-        # if relationships are set up correctly with cascade options.
-        # Double-check cascade settings in models (User, Quiz, SessionParticipant, followers table).
+        # Verwijder alle quiz sessie participaties
+        SessionParticipant.query.filter_by(user_id=user.id).delete()
 
+        # Verwijder alle quizzes en gerelateerde data
+        for quiz in user.quizzes:
+            # Verwijder vragen en opties
+            for question in quiz.questions:
+                if question.question_type == 'multiple_choice':
+                    MultipleChoiceOption.query.filter_by(
+                        question_id=question.id
+                    ).delete()
+                db.session.delete(question)
+            db.session.delete(quiz)
+
+        # Verwijder de gebruiker zelf
         db.session.delete(user)
         db.session.commit()
-        session.clear() # Log out after deletion
+        session.clear()
         return jsonify({"message": "Account deleted successfully"}), 200
+
     except Exception as e:
         db.session.rollback()
-        print(f"Error deleting account for user {user.id}: {e}")
-        return jsonify({"error": "Could not delete account due to an internal error."}), 500
+        print(f"Error deleting account: {e}")
+        return jsonify({
+            "error": "Could not delete account due to database constraints"
+        }), 500
 
 # ------------------------------
 # SESSION MANAGEMENT - UPDATED ROUTES

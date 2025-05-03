@@ -29,7 +29,7 @@ class SessionParticipant(db.Model):
     __tablename__ = 'session_participants'
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.Integer, db.ForeignKey('quiz_sessions.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     # --- Updated Field ---
     # team = db.Column(db.String(20))  # 'A', 'B' or None for individual mode
     team_number = db.Column(db.Integer) # 1, 2, 3... or None if num_teams is 1
