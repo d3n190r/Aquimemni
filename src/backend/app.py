@@ -44,7 +44,7 @@ class User(db.Model):
     """
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
+    username = db.Column(db.String(32), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     bio = db.Column(db.Text)
     avatar = db.Column(db.Integer)
@@ -293,25 +293,37 @@ def signup():
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({"error": "Gebruikersnaam en wachtwoord vereist"}), 400
+        return jsonify({"error": "Username and password required"}), 400
+
+    # Trim whitespace
+    username = username.strip()
+    password = password.strip()
+    if not username or not password:
+        return jsonify({"error": "Username and password cannot be empty"}), 400
+
+    # Backend length validation
+    if len(username) > 32:
+        return jsonify({"error": "Username cannot exceed 32 characters"}), 400
+    if len(password) > 64:
+        return jsonify({"error": "Password cannot exceed 64 characters"}), 400
 
     existing_user = User.query.filter_by(username=username).first()
     if existing_user:
-        return jsonify({"error": "Gebruikersnaam bestaat al"}), 409
+        return jsonify({"error": "Username already exists"}), 409
 
     hashed_pw = generate_password_hash(password)
     new_user = User(username=username, password_hash=hashed_pw)
     try:
         db.session.add(new_user)
         db.session.commit()
-        return jsonify({"message": f"Gebruiker {username} geregistreerd"}), 201
-    except IntegrityError: # Catch potential race conditions
+        return jsonify({"message": f"User {username} registered successfully"}), 201
+    except IntegrityError:
         db.session.rollback()
-        return jsonify({"error": "Gebruikersnaam bestaat al"}), 409
+        return jsonify({"error": "Username already exists"}), 409
     except Exception as e:
         db.session.rollback()
-        print(f"Error during signup: {e}") # Log the error server-side
-        return jsonify({"error": "Kon gebruiker niet registreren"}), 500
+        print(f"Error during signup: {e}")
+        return jsonify({"error": "Could not register user"}), 500
 
 
 @main_bp.route('/login', methods=['POST'])
@@ -321,18 +333,29 @@ def login():
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({"error": "Gebruikersnaam en wachtwoord vereist"}), 400
+        return jsonify({"error": "Username and password required"}), 400
+
+    # Trim whitespace
+    username = username.strip()
+    password = password.strip()
+    if not username or not password:
+        return jsonify({"error": "Username and password cannot be empty"}), 400
+
+    # Backend length validation (consistentie)
+    if len(username) > 32:
+        return jsonify({"error": "Invalid login credentials"}), 401 # Username too long
+    if len(password) > 64:
+         return jsonify({"error": "Invalid login credentials"}), 401 # Password too long
 
     user = User.query.filter_by(username=username).first()
     if user is None or not check_password_hash(user.password_hash, password):
-        return jsonify({"error": "Ongeldige login"}), 401
+        return jsonify({"error": "Invalid login credentials"}), 401
 
     session.clear()
     session['user_id'] = user.id
     session['username'] = user.username
-    # Consider adding session['avatar'] = user.avatar if needed frequently
 
-    return jsonify({"message": f"Ingelogd als {user.username}", "user": {"id": user.id, "username": user.username, "avatar": user.avatar}}), 200
+    return jsonify({"message": f"Logged in as {user.username}", "user": {"id": user.id, "username": user.username, "avatar": user.avatar}}), 200
 
 
 @main_bp.route('/home', methods=['GET'])
