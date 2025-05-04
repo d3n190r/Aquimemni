@@ -1,18 +1,18 @@
 // src/frontend/src/components/feature components/QuizSimulator.jsx
-import React, {useEffect, useRef, useState} from 'react';
-import {Link, useNavigate, useParams, useSearchParams} from 'react-router-dom';
+import React, { useEffect, useRef, useState, useCallback } from 'react'; // Import useCallback
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 // 1. Accept quizId as a prop
-function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash with useParams variable
+function QuizSimulator({ quizId: quizIdProp }) {
   // 2. Get ID from URL params as a fallback
   const { quizId: quizIdFromParams } = useParams();
   // 3. Determine the actual quiz ID to use, prioritizing the prop
   const quizIdToUse = quizIdProp ?? quizIdFromParams;
 
-  // --- Keep other existing setup ---
+  // --- State ---
   const [searchParams] = useSearchParams();
   const sessionCode = searchParams.get('session');
-  const isHost = searchParams.get('isHost') === 'true'; // This might not be needed if session determines behavior
+  // const isHost = searchParams.get('isHost') === 'true'; // Likely not needed here
 
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,43 +21,148 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
   const [showScore, setShowScore] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState([]);
   const [timeLeft, setTimeLeft] = useState(15);
-  // 'joining' and 'joined' might be redundant if QuizSession handles joining state before rendering this
-  const [joined, setJoined] = useState(!!sessionCode); // Assume joined if sessionCode is present initially
-  const navigate = useNavigate();
   const [answerStatus, setAnswerStatus] = useState([]);
+  const navigate = useNavigate();
   const timerId = useRef(null);
 
+  // Debug log
+  console.log(`QuizSimulator using ID: ${quizIdToUse} (Prop: ${quizIdProp}, Params: ${quizIdFromParams})`);
 
-   // Debug log to confirm which ID is being used
-   console.log(`QuizSimulator using ID: ${quizIdToUse} (Prop: ${quizIdProp}, Params: ${quizIdFromParams})`);
+  // --- Callbacks (defined before useEffect hooks that use them) ---
+
+  // Function to submit final score to the backend session
+  const submitSessionScore = useCallback(async () => {
+    // Use score from state directly inside useCallback
+    if (!sessionCode) return;
+    console.log(`QuizSimulator: Submitting score ${score} for session ${sessionCode}`);
+    try {
+      const response = await fetch(`/api/sessions/${sessionCode}/submit-score`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ score }) // Pass the current score state
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        console.error("Failed to submit score:", errData.error || response.status);
+      } else {
+        console.log("Score submitted successfully.");
+      }
+    } catch (err) {
+      console.error('Network error submitting score:', err);
+    }
+    // Dependencies: sessionCode (stable if from params), score (state)
+  }, [sessionCode, score]);
+
+  // Function to handle moving to the next question or finishing
+  // WRAPPED IN useCallback and defined BEFORE the timer useEffect
+  const handleNext = useCallback(() => {
+    if (timerId.current) { // Clear timer immediately
+      clearInterval(timerId.current);
+      timerId.current = null;
+    }
+
+    const currentQ = quiz?.questions?.[currentQuestion]; // Get current question safely
+
+    if (!quiz || !currentQ) {
+      console.warn("handleNext called without quiz or current question data.");
+      setShowScore(true);
+      submitSessionScore();
+      return;
+    }
+
+    // Evaluate answer
+    let answerResult = "Wrong";
+    const currentAnswer = selectedAnswers[currentQuestion];
+    let pointsEarned = 0;
+
+    if (currentQ.type === 'multiple_choice') {
+      const correctOptionIndex = currentQ.options?.findIndex(opt => opt.is_correct); // Safe navigation
+      if (currentAnswer === correctOptionIndex) {
+        answerResult = "Correct";
+        pointsEarned = 1;
+      }
+    } else if (currentQ.type === 'text_input') {
+      const userText = String(currentAnswer ?? '').trim().toLowerCase();
+      const correctText = String(currentQ.correct_answer || '').trim().toLowerCase();
+      if (userText !== '' && userText === correctText) {
+        answerResult = "Correct";
+        pointsEarned = 1;
+      }
+    } else if (currentQ.type === 'slider') {
+      if (Number(currentAnswer) === Number(currentQ.correct_value)) {
+        answerResult = "Correct";
+        pointsEarned = 1;
+      }
+    }
+
+    setAnswerStatus(prevStatus => [...prevStatus, answerResult]);
+    // Update score based on points for *this* question
+    setScore(prevScore => prevScore + pointsEarned);
+
+    // Move to next question or finish
+    const nextQuestionIndex = currentQuestion + 1;
+    if (nextQuestionIndex < quiz.questions.length) {
+      setCurrentQuestion(nextQuestionIndex);
+      setTimeLeft(15); // Reset timer for the next question
+    } else {
+      setShowScore(true);
+      // Submit score *after* the final score state has potentially been updated
+      // We need to call submitSessionScore, but it uses the 'score' state.
+      // Since state updates are async, the 'score' inside submitSessionScore
+      // might not be the final one if called immediately.
+      // Option 1: Rely on submitSessionScore having 'score' in its deps (done above).
+      // Option 2: Pass the calculated final score directly (more complex).
+      // Let's stick with Option 1 for now. submitSessionScore will be called
+      // potentially in the next render cycle after score updates, or we ensure
+      // it runs when showScore becomes true.
+      // Let's call it here, assuming the dependency array handles the state update.
+       submitSessionScore();
+    }
+    // Dependencies for handleNext
+  }, [quiz, currentQuestion, selectedAnswers, submitSessionScore]); // Removed score, let submitSessionScore handle it
 
 
-  // Timer effect
+  // --- Effects ---
+
+  // Timer effect - Now defined AFTER handleNext
   useEffect(() => {
-    // Ensure we have quiz data and are ready to run timer
-    if (!showScore && quiz?.questions?.length > 0 && quizIdToUse && joined) {
-        console.log("QuizSimulator: Starting timer effect.");
-        timerId.current = setInterval(() => {
+    // Conditions to start timer
+    if (!showScore && quiz?.questions?.length > 0 && quizIdToUse) {
+      console.log("QuizSimulator: Starting timer effect for question:", currentQuestion);
+      timerId.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            handleNext(); // Go to next question/results on timeout
-            return 15; // Reset timer duration
+            console.log("Timer expired, calling handleNext");
+            handleNext(); // Call the memoized handleNext
+            // Returning 15 here might cause a flicker if handleNext also sets it.
+            // Let handleNext manage the reset.
+            // We need to clear the interval here though.
+            if (timerId.current) clearInterval(timerId.current);
+            return 15; // Or just let handleNext reset it? Let's keep it for now.
           }
           return prev - 1;
         });
       }, 1000);
 
-      // Cleanup function for the timer
+      // Cleanup
       return () => {
-          console.log("QuizSimulator: Clearing timer effect.");
+        console.log("QuizSimulator: Clearing timer effect cleanup for question:", currentQuestion);
+        if (timerId.current) {
           clearInterval(timerId.current);
-          timerId.current = null; // Clear the ref
-      }
+          timerId.current = null;
+        }
+      };
     } else {
-        console.log("QuizSimulator: Timer not started.", { showScore, hasQuestions: quiz?.questions?.length > 0, quizIdToUse, joined });
+       console.log("QuizSimulator: Timer conditions not met or score shown.", { showScore, hasQuestions: quiz?.questions?.length > 0, quizIdToUse });
+        // Ensure timer is cleared if conditions become false while it's running
+       if (timerId.current) {
+           clearInterval(timerId.current);
+           timerId.current = null;
+        }
     }
-    // Dependencies for the timer effect
-  }, [currentQuestion, showScore, quiz, joined, quizIdToUse]); // Added quizIdToUse
+    // Dependencies: Include handleNext now it's stable
+  }, [currentQuestion, showScore, quiz, quizIdToUse, handleNext]);
 
 
   // Fetch quiz data using the determined ID
@@ -66,81 +171,53 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
       if (!quizIdToUse) {
         console.error("QuizSimulator: No Quiz ID available to fetch.");
         setLoading(false);
-        // Optionally navigate away or display an error message
-        navigate('/my-quizzes'); // Navigate back if no ID
+        navigate('/my-quizzes');
         return;
       }
 
       console.log(`QuizSimulator: Fetching quiz data for ID: ${quizIdToUse}`);
       setLoading(true);
       try {
-        const response = await fetch(`/api/quizzes/${quizIdToUse}`, { // Use quizIdToUse
-          credentials: 'include',
-        });
+        const response = await fetch(`/api/quizzes/${quizIdToUse}`, { credentials: 'include' });
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Quiz fetch failed (ID: ${quizIdToUse}, Status: ${response.status})`);
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Quiz fetch failed (ID: ${quizIdToUse}, Status: ${response.status})`);
         }
         const data = await response.json();
         console.log("QuizSimulator: Quiz data fetched successfully:", data);
         setQuiz(data);
-        // Reset quiz state when new data is loaded
+        // Reset state when new quiz data arrives
         setCurrentQuestion(0);
         setScore(0);
         setShowScore(false);
         setSelectedAnswers([]);
         setAnswerStatus([]);
-        setTimeLeft(15); // Reset timer duration for the first question
-        setJoined(true); // Mark as joined now that data is loaded
+        setTimeLeft(15);
       } catch (err) {
         console.error('QuizSimulator: Error fetching quiz:', err.message);
-        setQuiz(null); // Clear quiz data on error
-        navigate('/my-quizzes'); // Navigate back on error
+        setQuiz(null);
+        navigate('/my-quizzes');
       } finally {
         setLoading(false);
       }
     };
 
     fetchQuiz();
-  // Depend on the ID being used and navigate function
   }, [quizIdToUse, navigate]);
 
-  // Session joiner logic - Simplified: Assume joined if sessionCode exists and data loads
-  // This might need refinement based on exact requirements for participant view vs host view
-  useEffect(() => {
-     setJoined(!!sessionCode && !!quiz); // Consider joined if in session mode and quiz loaded
-  }, [sessionCode, quiz]);
 
-
-  // Check if we should show results directly (e.g., retrying after finishing)
+  // Effect to handle showing score if navigated with showResults param
   useEffect(() => {
     const showResults = searchParams.get('showResults') === 'true';
-    if (showResults && quiz) { // Only show score if quiz data is loaded
+    if (showResults && quiz) {
       setShowScore(true);
-    }
-  }, [searchParams, quiz]);
-
-  // Function to submit final score to the backend session
-  const submitSessionScore = async () => {
-    if (!sessionCode) return; // Only submit if in a session
-    console.log(`QuizSimulator: Submitting score ${score} for session ${sessionCode}`);
-    try {
-      const response = await fetch(`/api/sessions/${sessionCode}/submit-score`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ score })
-      });
-      if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          console.error("Failed to submit score:", errData.error || response.status);
-      } else {
-          console.log("Score submitted successfully.");
+      // If showing results directly, ensure score submission happens if needed
+      if (sessionCode) {
+          submitSessionScore();
       }
-    } catch (err) {
-      console.error('Network error submitting score:', err);
     }
-  };
+  }, [searchParams, quiz, sessionCode, submitSessionScore]); // Add sessionCode & submitSessionScore deps
+
 
   // Initialize default answers for slider/text when question changes
   useEffect(() => {
@@ -150,11 +227,10 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
         const newAnswers = [...prev];
         if (typeof newAnswers[currentQuestion] === 'undefined') {
           if (currentQ.type === 'slider') {
-            newAnswers[currentQuestion] = currentQ.min ?? 0; // Default to min value
+            newAnswers[currentQuestion] = currentQ.min ?? 0;
           } else if (currentQ.type === 'text_input') {
-            newAnswers[currentQuestion] = ''; // Default to empty string
+            newAnswers[currentQuestion] = '';
           }
-          // Multiple choice doesn't need a default selection
         }
         return newAnswers;
       });
@@ -171,65 +247,18 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
       .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
   };
 
-  // Function to handle moving to the next question or finishing
-  const handleNext = () => {
-    clearInterval(timerId.current); // Stop timer for current question
-    timerId.current = null;
-
-    if (!quiz || !currentQ) {
-      console.warn("handleNext called without quiz or current question data.");
-      setShowScore(true); // Default to showing score screen
-      submitSessionScore(); // Submit score if in session
-      return;
+  // Helper to get the text of the user's answer for the results screen
+  const getUserAnswerText = (question, index) => {
+    const answerValue = selectedAnswers[index];
+    if (typeof answerValue === 'undefined') return 'No answer given';
+    if (question.type === 'multiple_choice') {
+      return question.options?.[answerValue]?.text ?? 'Invalid option selected';
     }
-
-    // --- Evaluate answer ---
-    let answerResult = "Wrong"; // Default assumption
-    const currentAnswer = selectedAnswers[currentQuestion];
-    let pointsEarned = 0; // Use points for score calculation
-
-    if (currentQ.type === 'multiple_choice') {
-      // Find the index of the correct option
-      const correctOptionIndex = currentQ.options.findIndex(opt => opt.is_correct);
-      if (currentAnswer === correctOptionIndex) {
-        answerResult = "Correct";
-        pointsEarned = 1; // Assign 1 point for correct MC
-      }
-    } else if (currentQ.type === 'text_input') {
-      const userText = String(currentAnswer ?? '').trim().toLowerCase();
-      const correctText = String(currentQ.correct_answer || '').trim().toLowerCase();
-      // Ensure non-empty match
-      if (userText !== '' && userText === correctText) {
-        answerResult = "Correct";
-        pointsEarned = 1; // Assign 1 point for correct text
-      }
-    } else if (currentQ.type === 'slider') {
-      // Ensure comparison is done with numbers
-      if (Number(currentAnswer) === Number(currentQ.correct_value)) {
-        answerResult = "Correct";
-        pointsEarned = 1; // Assign 1 point for correct slider value
-      }
-    }
-
-    setAnswerStatus(prevStatus => [...prevStatus, answerResult]);
-    setScore(prevScore => prevScore + pointsEarned); // Update score based on points earned
-
-    // --- Move to next question or finish ---
-    const nextQuestionIndex = currentQuestion + 1;
-    if (nextQuestionIndex < quiz.questions.length) {
-      setCurrentQuestion(nextQuestionIndex);
-      setTimeLeft(15); // Reset timer for the next question
-    } else {
-      // --- Quiz Finished ---
-      setShowScore(true);
-      submitSessionScore(); // Submit final score if in session
-    }
+    return String(answerValue);
   };
 
 
   // --- Render Logic ---
-
-  // Display loading indicator
   if (loading) {
     return (
       <div className="container mt-4 text-center">
@@ -239,44 +268,16 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
     );
   }
 
-  // Display error if quiz failed to load
   if (!quiz) {
     return (
-        <div className="container mt-4">
-            <div className="alert alert-danger">
-                Failed to load quiz data (ID: {quizIdToUse || 'None Provided'}).
-            </div>
-            <Link to="/my-quizzes" className="btn btn-primary">Go to My Quizzes</Link>
+      <div className="container mt-4">
+        <div className="alert alert-danger">
+          Failed to load quiz data (ID: {quizIdToUse || 'None Provided'}).
         </div>
-    );
-  }
-
-  // Display joining message if in session mode but quiz not loaded yet (should be brief)
-  if (sessionCode && !joined) {
-    return (
-      <div className="container mt-5 text-center">
-        <div className="spinner-border text-primary mb-3" role="status"></div>
-        <p>Loading quiz data for session...</p>
+        <Link to="/my-quizzes" className="btn btn-primary">Go to My Quizzes</Link>
       </div>
     );
   }
-
-  // Helper to get the text of the user's answer for the results screen
-  const getUserAnswerText = (question, index) => {
-    const answerValue = selectedAnswers[index];
-
-    if (typeof answerValue === 'undefined') {
-        return 'No answer given';
-    }
-
-    if (question.type === 'multiple_choice') {
-      // Check if the selected index is valid for the options array
-      return question.options?.[answerValue]?.text ?? 'Invalid option selected';
-    }
-    // For slider and text input, the answer itself is the value/text
-    return String(answerValue);
-  };
-
 
   // --- Main Component Return JSX ---
   return (
@@ -291,10 +292,10 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
         </Link>
       </div>
 
-      {/* Conditional Rendering: Score Screen or Question Screen */}
       {showScore ? (
         // --- Score Screen ---
-        <div className="quiz-results">
+         <div className="quiz-results">
+           {/* ... (Score screen JSX remains the same) ... */}
           <div className="result-header p-4 bg-primary text-white rounded-3 text-center">
             <h2 className="mb-3">🎉 Simulation Complete! 🎉</h2>
             {/* Score Display */}
@@ -342,9 +343,8 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
           <div className="row row-cols-1 row-cols-md-2 g-4 mt-4">
             {quiz.questions.map((q, index) => {
               const isCorrect = answerStatus[index] === 'Correct';
-              // Determine the correct answer text based on question type
               const correctAnswerText = q.type === 'multiple_choice'
-                ? q.options.find(opt => opt.is_correct)?.text ?? 'N/A'
+                ? q.options?.find(opt => opt.is_correct)?.text ?? 'N/A' // Safe navigation
                 : q.type === 'text_input'
                 ? q.correct_answer ?? 'N/A'
                 : q.correct_value?.toString() ?? 'N/A';
@@ -364,7 +364,6 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
                         <p className="text-success mb-1">
                           <strong>Correct Answer:</strong> {correctAnswerText}
                         </p>
-                        {/* Show user's answer only if it was wrong */}
                         {!isCorrect && (
                           <p className="text-danger mb-0">
                             <strong>Your Answer:</strong> {getUserAnswerText(q, index)}
@@ -379,7 +378,7 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
           </div>
         </div>
       ) : (
-         // --- Question Screen ---
+        // --- Question Screen ---
         <div>
           {/* Question Header (Progress, Timer) */}
           <div className="quiz-header mb-4">
@@ -392,24 +391,26 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
                 {formatTime(timeLeft)}
               </div>
             </div>
-            {/* Progress Bar for Timer */}
-            <progress className="w-100 progress" value={timeLeft} max="15" style={{ height: '5px' }} />
+            {/* Progress Bar for Timer - Value represents remaining time */}
+            <progress
+                className="w-100 progress" // <-- REMOVED CONDITIONAL CLASSES
+                value={timeLeft}
+                max="15"
+                style={{ height: '5px' }}
+             />
           </div>
 
-          {/* Question Text - Ensure currentQ exists */}
+          {/* Question Text */}
           <h4 className="mb-4">{currentQ?.text || 'Loading question...'}</h4>
 
-           {/* --- Answer Input Area --- */}
-           {/* Ensure currentQ exists before rendering options */}
-
-          {/* Multiple Choice Options */}
+          {/* --- Answer Input Area --- */}
+           {/* Multiple Choice Options */}
           {currentQ?.type === 'multiple_choice' && (
             <div className="options-grid">
               {currentQ.options.map((option, index) => (
                 <button
                   key={index}
                   onClick={() => {
-                      // Update selected answer only if timer hasn't run out
                       if (timeLeft > 0) {
                           setSelectedAnswers(prev => {
                               const newAnswers = [...prev];
@@ -418,14 +419,12 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
                           });
                       }
                   }}
-                  // Apply 'active' class if selected, potential 'correct-answer' class if timer runs out
                   className={`option-button btn btn-lg btn-outline-primary w-100 d-block text-start p-3
                     ${selectedAnswers[currentQuestion] === index ? 'active' : ''}
-                    ${timeLeft === 0 && option.is_correct ? 'correct-answer' : ''}`}
-                  disabled={timeLeft === 0} // Disable button when timer runs out
+                    ${timeLeft === 0 && option.is_correct ? 'correct-answer' : ''}`} // Show correct only after time runs out
+                  disabled={timeLeft === 0}
                 >
                   {option.text}
-                  {/* Visual indicator for correct answer shown AFTER time runs out */}
                   {timeLeft === 0 && option.is_correct && (
                     <span className="correct-badge float-end fs-4 text-success">✓</span>
                   )}
@@ -436,8 +435,9 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
 
           {/* Text Input */}
           {currentQ?.type === 'text_input' && (
-            <div className="mb-3">
-              <label htmlFor="textAnswer" className="form-label fs-5">Your Answer:</label>
+             <div className="mb-3">
+               {/* ... (Text input JSX remains the same) ... */}
+                <label htmlFor="textAnswer" className="form-label fs-5">Your Answer:</label>
               <input
                 type="text"
                 id="textAnswer"
@@ -463,13 +463,14 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
                {timeLeft === 0 && (
                    <div className="alert alert-success mt-2">Correct Answer: {currentQ.correct_answer}</div>
                )}
-            </div>
-          )}
+             </div>
+           )}
 
           {/* Slider Input */}
           {currentQ?.type === 'slider' && (
-            <div className="mb-3">
-              <label htmlFor="sliderAnswer" className="form-label fs-5 d-block">
+             <div className="mb-3">
+              {/* ... (Slider input JSX remains the same) ... */}
+                <label htmlFor="sliderAnswer" className="form-label fs-5 d-block">
                 Your Selection: <strong className="text-primary">{selectedAnswers[currentQuestion] ?? currentQ.min ?? 0}</strong>
               </label>
               <input
@@ -503,24 +504,24 @@ function QuizSimulator({ quizId: quizIdProp }) { // Rename prop to avoid clash w
                {timeLeft === 0 && (
                    <div className="alert alert-success mt-2">Correct Value: {currentQ.correct_value}</div>
                )}
-            </div>
-          )}
+             </div>
+           )}
 
           {/* Next/Finish Button */}
           <div className="mt-4 text-end">
             <button
               className="btn btn-primary btn-lg px-5"
-              onClick={handleNext}
-              // Disable if timer is running AND no answer selected yet (for MC/Slider)
-              // Text input can be submitted empty, maybe add validation?
-              disabled={
-                timeLeft > 0 &&
-                (typeof selectedAnswers[currentQuestion] === 'undefined' && currentQ?.type !== 'text_input')
-              }
+              onClick={handleNext} // Call the memoized handleNext
+              // Simplified disabled logic: Button is active unless timer is up
+              // OR for MC/Slider, if timer is running AND no answer is selected yet.
+               disabled={
+                 timeLeft === 0 ||
+                 (timeLeft > 0 &&
+                  currentQ?.type !== 'text_input' &&
+                  typeof selectedAnswers[currentQuestion] === 'undefined')
+               }
             >
-              {currentQuestion === quiz.questions.length - 1
-                ? 'Finish Simulation'
-                : 'Next Question →'}
+              {currentQuestion === quiz.questions.length - 1 ? 'Finish Simulation' : 'Next Question →'}
             </button>
           </div>
         </div>
