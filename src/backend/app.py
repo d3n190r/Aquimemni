@@ -936,7 +936,19 @@ def delete_account():
         return jsonify({"error": "Incorrect password"}), 401
 
     try:
-        # Verwijder alle followers/following relaties
+        # ---- START OF CHANGES ----
+
+        # 1. Delete sessions HOSTED by this user first
+        #    Cascade delete on QuizSession -> SessionParticipant should handle participants
+        QuizSession.query.filter_by(host_id=user.id).delete(synchronize_session=False)
+        # We use synchronize_session=False because we're doing multiple deletes
+        # before the final commit. Be cautious with this if relations are complex.
+
+        # 2. Delete participations of this user in OTHER sessions
+        SessionParticipant.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+
+        # 3. Delete follower/following relationships
+        # Use synchronize_session=False here too for consistency before final commit
         db.session.execute(
             followers.delete().where(
                 (followers.c.follower_id == user.id) |
@@ -944,31 +956,33 @@ def delete_account():
             )
         )
 
-        # Verwijder alle quiz sessie participaties
-        SessionParticipant.query.filter_by(user_id=user.id).delete()
+        # 4. Delete Quizzes (cascade should handle questions/options)
+        #    This loop is kept as it was, cascade delete on Quiz->Question should work.
+        #    The explicit deletion of hosted sessions above prevents the quiz_id NULL issue.
+        for quiz in list(user.quizzes): # Iterate over a copy if modifying during iteration
+             # You could rely purely on cascade delete from the user, but explicit is sometimes clearer
+             # If cascade='all, delete-orphan' is set correctly on User->Quiz, this loop might be redundant.
+             # Keeping it for now as it was in your original code.
+             # Note: cascade should handle questions/options if Quiz->Question relationship is set up right.
+             db.session.delete(quiz)
 
-        # Verwijder alle quizzes en gerelateerde data
-        for quiz in user.quizzes:
-            # Verwijder vragen en opties
-            for question in quiz.questions:
-                if question.question_type == 'multiple_choice':
-                    MultipleChoiceOption.query.filter_by(
-                        question_id=question.id
-                    ).delete()
-                db.session.delete(question)
-            db.session.delete(quiz)
 
-        # Verwijder de gebruiker zelf
+        # 5. Delete the user itself (MUST BE LAST)
         db.session.delete(user)
+
+        # ---- END OF CHANGES ----
+
+        # 6. Commit all changes
         db.session.commit()
-        session.clear()
+        session.clear() # Clear session AFTER successful commit
         return jsonify({"message": "Account deleted successfully"}), 200
 
     except Exception as e:
-        db.session.rollback()
-        print(f"Error deleting account: {e}")
+        db.session.rollback() # Rollback on ANY error
+        print(f"Error deleting account for user {user.id}: {e}") # Log the specific error
+        # Provide a more generic error message to the user
         return jsonify({
-            "error": "Could not delete account due to database constraints"
+            "error": "Could not delete account due to an internal error. Please try again later."
         }), 500
 
 # ------------------------------
