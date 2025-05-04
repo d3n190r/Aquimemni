@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // State for password visibility
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -13,18 +13,12 @@ function Login({ onLogin }) {
     e.preventDefault();
     setError('');
     try {
-      // Trim whitespace before sending
       const trimmedUsername = username.trim();
       const trimmedPassword = password.trim();
-
-      // Basic check for empty fields after trimming
       if (!trimmedUsername || !trimmedPassword) {
         setError('Username and password are required.');
         return;
       }
-
-      // Frontend length check (optional but good UX)
-      // Note: Backend validation is generally recommended as well.
       if (trimmedUsername.length > 32) {
         setError('Username cannot exceed 32 characters.');
         return;
@@ -33,8 +27,6 @@ function Login({ onLogin }) {
         setError('Password cannot exceed 64 characters.');
         return;
       }
-
-
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,7 +38,6 @@ function Login({ onLogin }) {
         navigate('/home');
       } else {
         const data = await response.json();
-        // Use backend error message if available
         setError(data.error || 'Login failed');
       }
     } catch (err) {
@@ -57,16 +48,12 @@ function Login({ onLogin }) {
 
   return (
     <div className="container" style={{ maxWidth: '400px', marginTop: '50px' }}>
-      {/* LOGO */}
       <div className="text-center">
         <img src="/logo.png" alt="App Logo" style={{ width: '150px', marginBottom: '20px' }} />
       </div>
-
       <h2 className="mb-4">Login</h2>
-
       <form onSubmit={handleSubmit}>
         {error && <div className="alert alert-danger">{error}</div>}
-
         <div className="mb-3">
           <label className="form-label">Username</label>
           <input
@@ -75,33 +62,35 @@ function Login({ onLogin }) {
             value={username}
             onChange={e => setUsername(e.target.value)}
             required
-            maxLength="32" // Username length limit
+            maxLength="32"
           />
         </div>
-
-        {/* --- Password Field with Icon --- */}
-        <div className="mb-3 position-relative"> {/* Keep parent relative */}
+        {/* --- Password Field with Icon (Updated Position) --- */}
+        <div className="mb-3 position-relative">
           <label className="form-label">Password</label>
           <input
             type={showPassword ? 'text' : 'password'}
-            className="form-control" // Input field itself
+            className="form-control pe-5" // Padding blijft belangrijk
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
-            maxLength="64" // Password length limit
-            style={{ paddingRight: '3rem' }} // Add padding for the icon space
+            maxLength="64"
           />
-          {/* Reveal Button - Positioned absolute within the relative parent */}
+          {/* Reveal Button (Updated Position) */}
           <button
             type="button"
-            className="btn btn-link position-absolute top-50 translate-middle-y" // Use top-50 and translate for vertical centering
+            // GEWIJZIGD: top-50 class weg, translate-middle-y weg uit class
+            className="btn btn-link position-absolute end-0 d-inline-flex align-items-center justify-content-center p-0"
             onClick={() => setShowPassword(!showPassword)}
+            // GEWIJZIGD: top en transform direct in style
             style={{
-              right: '10px', // Position from the right edge
+              width: '2.5rem',
+              height: '2.5rem',
               border: 'none',
               background: 'none',
               cursor: 'pointer',
-              zIndex: 2 // Ensure button is clickable over input padding
+              top: '74%', // <<-- VERHOOG DEZE WAARDE (start met 55% - 60%)
+              transform: 'translateY(-50%)', // <<-- Houd deze voor centering t.o.v. nieuwe top
             }}
             aria-label={showPassword ? "Hide password" : "Show password"}
           >
@@ -109,14 +98,10 @@ function Login({ onLogin }) {
           </button>
         </div>
         {/* --- End Password Field --- */}
-
-
         <button type="submit" className="btn btn-primary w-100">
           Login
         </button>
       </form>
-
-      {/* SIGNUP BUTTON */}
       <div className="text-center mt-3">
         <button
           type="button"

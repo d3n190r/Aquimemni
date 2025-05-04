@@ -97,7 +97,14 @@ const Header = ({ onLogout }) => {
             <li><button className="dropdown-item" onClick={() => navigate('/profile')}>Profile</button></li>
             <li><button className="dropdown-item" onClick={() => navigate('/settings')}>Settings</button></li>
             <li><hr className="dropdown-divider" /></li>
-            <li><button className="dropdown-item text-danger" onClick={handleLogout}>Logout</button></li>
+            <li>
+              <button
+                className="dropdown-item text-danger d-flex justify-content-between align-items-center" // <-- KLASSEN TOEGEVOEGD
+                onClick={handleLogout}
+              >
+                Logout <i className="bi bi-box-arrow-right"></i> {/* <-- ms-2 VERWIJDERD */}
+              </button>
+            </li>
           </ul>
         </div>
       </div>
