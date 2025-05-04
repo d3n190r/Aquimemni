@@ -22,7 +22,7 @@ console.log('QuizDetails is', QuizDetails);
 import MyQuizzes from './components/feature components/MyQuizzes';
 import QuizSimulator from './components/feature components/QuizSimulator';
 import QuizSession from './components/feature components/QuizSession';
-import SessionResults from './components/feature components/SessionResults';
+import SessionResults from './components/feature components/SessionResults'; // << NIEUW
 
 /**
  * App Component
@@ -44,77 +44,73 @@ function App() {
 
   return (
     <Routes>
-      
-      {/* Route voor de interactieve Quiz */}
-      <Route 
-        path="/simulate/:quizId" 
-        element={<QuizSimulator />} 
-      />
-      
+
       {/* Route voor de interactieve Quiz */}
       <Route
-        path="/quiz"
-        element={<Quiz onLogout={handleLogout} />}
+        path="/simulate/:quizId"
+        element={<QuizSimulator />} // Blijft ongewijzigd, pakt session uit params
       />
-      
+
       {/* Route voor registratie */}
       <Route
         path="/signup"
         element={<Signup onSignup={() => { /* eventueel na signup */ }} />}
       />
-      
+
       {/* Route voor inloggen */}
       <Route
         path="/login"
         element={<Login onLogin={handleLogin} />}
       />
-      
+
       {/* Route voor gebruikersprofiel */}
       <Route path="/profile" element={<Profile />} />
-      
+
       {/* Route voor volgers */}
       <Route path="/followers" element={<Followers />} />
 
       {/* Route naar quizdetail */}
-      //<Route path="/quiz/:quizId" element={<QuizDetails />}/>
-      
+      <Route path="/quiz/:quizId" element={<QuizDetails />}/> {/* Hersteld */}
+
       {/* Route voor Quiz Maker */}
       <Route path="/quiz-maker" element={<QuizMaker />} />
-      
+
       <Route path="/quiz/new" element={<QuizMaker/>} />
-      
+
       <Route path="/quiz/edit/:id" element={<QuizMaker/>} />
-      
+
       {/* Route voor MyQuizzes (lijst met eigen quizzes) */}
       <Route
         path="/my-quizzes"
         element={<MyQuizzes />}
       />
-      
+
       {/* Route voor de Home pagina */}
       <Route
         path="/home"
         element={<Home onLogout={handleLogout} />}
       />
-      
-      {/* Route voor de Home pagina */}
+
+      {/* Route voor de Instellingen pagina */}
       <Route
         path="/settings"
         element={<Settings />}
       />
-      {/* Route voor de Home pagina */}
-      <Route 
-        path="/session/:code" 
-        element={<QuizSession />} 
+      {/* Route voor de Quiz Sessie Lobby/Spel */}
+      <Route
+        path="/session/:code"
+        element={<QuizSession />}
       />
-      {/* Route voor de Home pagina */}
-      <Route 
-        path="/session/:quizId/results" 
-        element={<SessionResults />} 
+
+      {/* NIEUWE Route voor de Sessie Resultaten Pagina */}
+      <Route
+        path="/session/:quizId/results"
+        element={<SessionResults />}
       />
+
       {/* Alle andere routes leiden door naar login */}
       <Route path="*" element={<Navigate to="/login" replace />} />
-      
+
     </Routes>
   );
 }
