@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 const SessionResults = () => {
-  const { quizId } = useParams(); // Haal quizId op voor de "Back to My Results" knop
+  // const { quizId } = useParams(); // Niet langer nodig voor de verwijderde knop
   const [searchParams] = useSearchParams();
   const sessionCode = searchParams.get('session'); // Haal session code uit URL
   const [results, setResults] = useState([]);
@@ -168,13 +168,14 @@ const SessionResults = () => {
 
       {/* Navigation Buttons */}
       <div className="mt-5 text-center d-flex justify-content-center gap-3">
-        {/* Knop om terug te gaan naar JOUW specifieke simulatie resultaten */}
+        {/* --- KNOP VERWIJDERD ---
         <button
           className="btn btn-outline-secondary btn-lg"
           onClick={() => navigate(`/simulate/${quizId}?session=${sessionCode}&showResults=true`)} // Navigeer terug met showResults flag
         >
            <i className="bi bi-arrow-left-circle me-2"></i>Back to My Results
         </button>
+        */}
         <button className="btn btn-primary btn-lg" onClick={() => navigate('/home')}>
           <i className="bi bi-house-door me-2"></i>Back to Home
         </button>

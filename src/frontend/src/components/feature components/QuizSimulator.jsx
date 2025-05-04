@@ -304,6 +304,7 @@ function QuizSimulator({ quizId: quizIdProp, sessionCode: sessionCodeProp }) {
         <button className="btn btn-outline-secondary me-2" onClick={() => navigate('/my-quizzes')}>
           ← Back to My Quizzes
         </button>
+        {/* --- KNOP TERUGGEZET --- */}
         <Link to="/home" className="btn btn-outline-secondary">
           ← Back to Home
         </Link>
@@ -347,10 +348,7 @@ function QuizSimulator({ quizId: quizIdProp, sessionCode: sessionCodeProp }) {
                 </button>
               )}
 
-               {/* Back to Home */}
-               <Link to="/home" className="btn btn-secondary btn-lg">
-                 <i className="bi bi-house me-2"></i> Back to Home
-               </Link>
+               {/* --- KNOP BLIJFT VERWIJDERD --- */}
             </div>
           </div>
 
