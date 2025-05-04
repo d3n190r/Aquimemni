@@ -1,6 +1,6 @@
 // src/frontend/src/components/feature components/QuizSession.jsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {useNavigate, useParams} from 'react-router-dom';
 import QuizSimulator from './QuizSimulator';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
@@ -258,32 +258,68 @@ function QuizSession() {
     };
 
     const handleStartQuiz = async () => {
-        if (!sessionInfo || !currentUser || isStarting || currentUser.id !== sessionInfo.host_id) return;
+        // Ensure we have sessionInfo and currentUser before proceeding
+        if (!sessionInfo || !currentUser || isStarting || currentUser.id !== sessionInfo.host_id) {
+            console.warn("Start quiz conditions not met:", { hasSession: !!sessionInfo, hasUser: !!currentUser, isStarting, isHost: currentUser?.id === sessionInfo?.host_id });
+            return;
+        }
         setStartError('');
-        setIsStarting(true);
+        setIsStarting(true); // Keep showing "Starting..."
 
         try {
+            // --- Step 1: Tell the backend to start the session ---
             const response = await fetch(`/api/sessions/${code}/start`, {
                 method: 'POST',
                 credentials: 'include'
             });
             const result = await response.json();
+
             if (response.ok) {
-                console.log('Start result:', result.message);
-                // Stop polling immediately
-                if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-                // Force UI update - component will transition to QuizSimulator on next render
-                if (isMountedRef.current) setSessionInfo(prev => ({ ...prev, started: true }));
+                console.log('Backend start successful:', result.message);
+
+                // --- Step 2: Stop regular polling ---
+                if (pollIntervalRef.current) {
+                    clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
+                    console.log("Polling stopped.");
+                }
+
+                // --- Step 3: Immediately fetch the final session state ---
+                // This ensures we have started=true AND the quiz_id before transitioning.
+                console.log("Immediately fetching updated session data after start...");
+                // We pass 'currentUser' which should still be loaded from the initial fetch.
+                // If there's a chance currentUser could be null here, more robust error handling is needed.
+                if (currentUser && isMountedRef.current) {
+                    // Call fetchData, which will update sessionInfo state and trigger the re-render
+                    await fetchData(currentUser);
+                    console.log("Immediate fetch completed. State should be updated.");
+                    // At this point, the component should re-render.
+                    // The check `if (sessionInfo.started)` should become true,
+                    // and it should render QuizSimulator with the correct quiz_id from the fetched data.
+                } else {
+                     // This case indicates a problem with the component's state (user missing or unmounted)
+                    console.error("Cannot perform immediate fetch: currentUser missing or component unmounted.");
+                    setStartError("Failed to update session state after starting. Please refresh.");
+                    if (isMountedRef.current) setIsStarting(false); // Allow retry? Or navigate away?
+                }
+
             } else {
-                setStartError(result.error || 'Failed to start quiz.');
-                 if (isMountedRef.current) setIsStarting(false); // Re-enable button only on failure
+                // --- Handle backend start failure ---
+                console.error("Backend failed to start session:", result.error);
+                setStartError(result.error || 'Failed to start quiz on the server.');
+                 // Re-enable the button if starting failed
+                 if (isMountedRef.current) setIsStarting(false);
             }
         } catch (err) {
-            console.error("Network error starting quiz:", err);
-            setStartError('A network error occurred.');
-             if (isMountedRef.current) setIsStarting(false); // Re-enable button only on failure
+            // --- Handle network or other errors during start/fetch ---
+            console.error("Error during start quiz process:", err);
+            setStartError('A network error occurred while trying to start.');
+             // Re-enable button on error
+             if (isMountedRef.current) setIsStarting(false);
         }
-        // No finally block for setIsStarting - successful start unmounts this view
+        // Note: We don't explicitly set isStarting back to false on success,
+        // because the component should transition to QuizSimulator, effectively unmounting this view.
+        // If the immediate fetch fails, we set it back to false above.
     };
 
     const copyCodeToClipboard = async () => {

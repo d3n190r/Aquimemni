@@ -1,13 +1,13 @@
 # src/backend/app.py
-from flask import Blueprint, request, jsonify, session
-from .init_flask import db, main_bp
-from werkzeug.security import generate_password_hash, check_password_hash
+import random  # For session code generation
+import string
 from datetime import datetime
+
+from flask import Blueprint, request, jsonify, session
 from flask_cors import CORS  # Add CORS support
 from sqlalchemy import or_
-from sqlalchemy.exc import IntegrityError # Import IntegrityError
-import string, random # For session code generation
-
+from sqlalchemy.exc import IntegrityError  # Import IntegrityError
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from .Questions import (
     Question,
@@ -16,7 +16,7 @@ from .Questions import (
     SliderQuestion,
     MultipleChoiceQuestion
 )
-
+from .init_flask import db, main_bp
 # --- Import Updated Models ---
 from .session import (
     QuizSession,
@@ -914,14 +914,13 @@ def change_password():
         print(f"Error changing password for user {user.id}: {e}")
         return jsonify({"error": "Could not change password due to an internal error."}), 500
 
-
-# In app.py
 @main_bp.route('/delete-account', methods=['DELETE'])
 def delete_account():
     if 'user_id' not in session:
         return jsonify({"error": "Not logged in"}), 401
 
-    user = db.session.get(User, session['user_id'])
+    user_id = session['user_id'] # Get user_id from session
+    user = db.session.get(User, user_id) # Fetch user using the ID
     if not user:
         session.clear()
         return jsonify({"error": "User not found or session invalid"}), 401
@@ -936,53 +935,130 @@ def delete_account():
         return jsonify({"error": "Incorrect password"}), 401
 
     try:
-        # ---- START OF CHANGES ----
+        # --- Deletion Order ---
+        # 1. Sessions (Hosted & Participated) + Their Participants
+        # 2. Followers/Following
+        # 3. Quiz Content (Options -> Derived Questions -> Base Questions)
+        # 4. Quizzes
+        # 5. User
 
-        # 1. Delete sessions HOSTED by this user first
-        #    Cascade delete on QuizSession -> SessionParticipant should handle participants
-        QuizSession.query.filter_by(host_id=user.id).delete(synchronize_session=False)
-        # We use synchronize_session=False because we're doing multiple deletes
-        # before the final commit. Be cautious with this if relations are complex.
+        # --- Step 1a: Find IDs of sessions hosted by this user ---
+        hosted_session_ids_query = QuizSession.query.filter_by(host_id=user.id).with_entities(QuizSession.id)
+        hosted_session_ids = [id_tuple[0] for id_tuple in hosted_session_ids_query.all()]
 
-        # 2. Delete participations of this user in OTHER sessions
-        SessionParticipant.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+        # --- Step 1b: Delete ALL participants belonging to those hosted sessions ---
+        if hosted_session_ids:
+            SessionParticipant.query.filter(
+                SessionParticipant.session_id.in_(hosted_session_ids)
+            ).delete(synchronize_session=False)
+            print(f"Deleted participants for hosted sessions: {hosted_session_ids}")
 
-        # 3. Delete follower/following relationships
-        # Use synchronize_session=False here too for consistency before final commit
+        # --- Step 1c: Delete the sessions hosted by this user ---
+        if hosted_session_ids:
+            QuizSession.query.filter(
+                QuizSession.id.in_(hosted_session_ids)
+            ).delete(synchronize_session=False)
+            print(f"Deleted hosted sessions: {hosted_session_ids}")
+
+        # --- Step 1d: Delete participations where THIS user was a participant ---
+        SessionParticipant.query.filter_by(
+            user_id=user.id
+        ).delete(synchronize_session=False)
+        print(f"Deleted participations for user {user.id} in other sessions.")
+
+        # --- Step 2: Delete follower/following relationships ---
+        # Using synchronize_session='fetch' might be safer here if needed, but 'False' is often faster.
         db.session.execute(
             followers.delete().where(
                 (followers.c.follower_id == user.id) |
                 (followers.c.followed_id == user.id)
             )
         )
+        print(f"Deleted follower/following relationships for user {user.id}.")
 
-        # 4. Delete Quizzes (cascade should handle questions/options)
-        #    This loop is kept as it was, cascade delete on Quiz->Question should work.
-        #    The explicit deletion of hosted sessions above prevents the quiz_id NULL issue.
-        for quiz in list(user.quizzes): # Iterate over a copy if modifying during iteration
-             # You could rely purely on cascade delete from the user, but explicit is sometimes clearer
-             # If cascade='all, delete-orphan' is set correctly on User->Quiz, this loop might be redundant.
-             # Keeping it for now as it was in your original code.
-             # Note: cascade should handle questions/options if Quiz->Question relationship is set up right.
-             db.session.delete(quiz)
+        # --- Step 3: Delete Quiz Content (Options -> Derived Questions -> Base Questions) ---
+        # --- Step 3a: Find IDs of quizzes owned by the user ---
+        user_quiz_ids_query = Quiz.query.filter_by(user_id=user.id).with_entities(Quiz.id)
+        user_quiz_ids = [id_tuple[0] for id_tuple in user_quiz_ids_query.all()]
+
+        if user_quiz_ids:
+            # --- Step 3b: Find IDs of ALL questions within those quizzes ---
+            question_ids_query = Question.query.filter(
+                Question.quiz_id.in_(user_quiz_ids)
+            ).with_entities(Question.id)
+            question_ids = [id_tuple[0] for id_tuple in question_ids_query.all()]
+
+            if question_ids:
+                # --- Step 3c: Delete Options belonging to MultipleChoice questions FIRST ---
+                mc_question_ids_query = MultipleChoiceQuestion.query.filter(
+                    MultipleChoiceQuestion.id.in_(question_ids)
+                ).with_entities(MultipleChoiceQuestion.id)
+                mc_question_ids = [id_tuple[0] for id_tuple in mc_question_ids_query.all()]
+
+                if mc_question_ids:
+                    MultipleChoiceOption.query.filter(
+                        MultipleChoiceOption.question_id.in_(mc_question_ids)
+                    ).delete(synchronize_session=False)
+                    print(f"Deleted multiple choice options for MC questions: {mc_question_ids}")
+
+                # --- Step 3d: Delete from DERIVED question tables ---
+                # It's crucial to delete from these before the base 'questions' table.
+
+                # Delete Text Input Questions
+                TextInputQuestion.query.filter(
+                    TextInputQuestion.id.in_(question_ids)
+                ).delete(synchronize_session=False)
+                print(f"Deleted text input question entries for IDs (if any): {question_ids}")
+
+                # Delete Multiple Choice Questions (Options should already be deleted)
+                MultipleChoiceQuestion.query.filter(
+                    MultipleChoiceQuestion.id.in_(question_ids)
+                ).delete(synchronize_session=False)
+                print(f"Deleted multiple choice question entries for IDs (if any): {question_ids}")
+
+                # Delete Slider Questions
+                SliderQuestion.query.filter(
+                    SliderQuestion.id.in_(question_ids)
+                ).delete(synchronize_session=False)
+                print(f"Deleted slider question entries for IDs (if any): {question_ids}")
 
 
-        # 5. Delete the user itself (MUST BE LAST)
+                # --- Step 3e: NOW Delete from the BASE questions table ---
+                # This should succeed because the foreign keys from derived tables are gone.
+                Question.query.filter(
+                    Question.id.in_(question_ids)
+                ).delete(synchronize_session=False)
+                print(f"Deleted base question entries: {question_ids}")
+
+
+        # --- Step 4: Delete Quizzes created by this user ---
+        # Now this should succeed as the questions (base and derived) are gone.
+        if user_quiz_ids:
+            Quiz.query.filter(
+                Quiz.id.in_(user_quiz_ids)
+            ).delete(synchronize_session=False)
+            print(f"Deleted quizzes: {user_quiz_ids}")
+
+        # --- Step 5: Delete the user itself (MUST BE LAST) ---
         db.session.delete(user)
+        print(f"Marked user {user.id} ({user.username}) for deletion.")
 
-        # ---- END OF CHANGES ----
-
-        # 6. Commit all changes
+        # --- Step 6: Commit all the staged deletions ---
         db.session.commit()
-        session.clear() # Clear session AFTER successful commit
+        print(f"Committed deletion for user {user.id} ({user.username}).")
+
+        session.clear()  # Clear session AFTER successful commit
         return jsonify({"message": "Account deleted successfully"}), 200
 
     except Exception as e:
-        db.session.rollback() # Rollback on ANY error
-        print(f"Error deleting account for user {user.id}: {e}") # Log the specific error
-        # Provide a more generic error message to the user
+        db.session.rollback()  # Rollback the entire transaction on ANY error
+        # Log the detailed error for server-side debugging
+        import traceback
+        print(f"ERROR deleting account for user {user.id} ({user.username}): {type(e).__name__} - {e}")
+        traceback.print_exc() # Print full traceback for better debugging
+        # Provide a user-friendly, generic error message
         return jsonify({
-            "error": "Could not delete account due to an internal error. Please try again later."
+            "error": "Could not delete account due to an internal error. Please check server logs."
         }), 500
 
 # ------------------------------
