@@ -14,12 +14,27 @@ function Followers() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchData = async () => {
-      await fetchFollowers();
-      await fetchFollowing();
-      await fetchAllUsers();
+    const fetchProfile = async () => {
+      try {
+        const response = await fetch('/api/profile', {
+          credentials: 'include',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+
+        if (!response.ok) {
+          navigate('/login');
+          return;
+        }
+
+        await fetchFollowers();
+        await fetchFollowing();
+        await fetchAllUsers();
+
+      } catch (err) {
+        setError('Failed to load profile');
+      }
     };
-    fetchData();
+    fetchProfile();
   }, []);
 
   const fetchFollowers = async () => {
