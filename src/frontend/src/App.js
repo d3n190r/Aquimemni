@@ -109,7 +109,7 @@ function App() {
       />
 
       {/* Alle andere routes leiden door naar login */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/home" replace />} />
 
     </Routes>
   );
