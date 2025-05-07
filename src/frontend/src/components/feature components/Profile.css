@@ -1,0 +1,108 @@
+/* src/frontend/src/components/feature components/Profile.css */
+
+/* --- General Styles (Apply to both Profile.jsx and ProfileView.jsx) --- */
+.profile-page-container {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  padding-bottom: 2rem; /* Add padding at bottom */
+}
+
+.profile-banner {
+  background-color: #6c757d;
+  background-size: cover;
+  background-position: center;
+  height: 250px; /* Default height for own profile */
+  width: 100%;
+  position: relative;
+  transition: background-color 0.5s ease, background-image 0.5s ease;
+}
+
+.profile-content-below-banner {
+  /* Container for content below the banner */
+}
+
+/* --- Styles for Profile.jsx (Editing Own Profile) --- */
+
+/* Avatar Grid */
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+  border-radius: 0.375rem;
+  background-color: #fff;
+}
+.avatar-item {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  padding: 0;
+  border: 3px solid transparent;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  background-color: #e9ecef;
+}
+.avatar-item img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-item:hover { transform: scale(1.05); border-color: #a6cffc; }
+.avatar-item.selected { border-color: #0d6efd; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
+
+/* Banner Image Grid */
+.banner-image-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; }
+.banner-image-item { height: 70px; border-radius: 0.25rem; overflow: hidden; border: 2px solid transparent; cursor: pointer; transition: border-color 0.2s ease, transform 0.2s ease; padding: 0; background-color: #e9ecef; }
+.banner-image-item img { width: 100%; height: 100%; object-fit: cover; }
+.banner-image-item:hover { transform: scale(1.03); }
+.banner-image-item.selected { border-color: #0d6efd; box-shadow: 0 0 8px rgba(13, 110, 253, 0.5); }
+
+/* Banner Color Swatches */
+.banner-color-swatches { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.banner-color-swatch { width: 35px; height: 35px; border-radius: 50%; border: 2px solid #ccc; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.banner-color-swatch:hover { transform: scale(1.1); }
+.banner-color-swatch.selected { border-color: #000; box-shadow: 0 0 0 3px white, 0 0 0 5px #0d6efd; }
+
+/* --- Styles specific to ProfileView.jsx (Public View) --- */
+
+.profile-view-card {
+  overflow: visible; /* Allow avatar to overflow the card boundaries */
+}
+
+.profile-view-header {
+  border-bottom: none; /* Remove border below header */
+  /* Banner inside header already has height set via inline style */
+}
+
+.profile-view-header .profile-banner {
+   border-top-left-radius: var(--bs-card-inner-border-radius); /* Match card border radius */
+   border-top-right-radius: var(--bs-card-inner-border-radius);
+}
+
+.profile-view-avatar {
+  width: 150px; /* Size of the avatar */
+  height: 150px;
+  object-fit: cover;
+  border: 5px solid white; /* White border */
+  background-color: white; /* Ensure solid background */
+  /* Positioning: Center horizontally, slightly overlapping the banner */
+  position: absolute;
+  left: 50%;
+  bottom: 0; /* Align bottom of avatar with bottom of header */
+  transform: translate(-50%, 50%); /* Center horizontally, move down by half its height */
+  z-index: 2; /* Make sure it's above the banner */
+}
+
+.profile-view-body {
+  padding-top: 90px !important; /* Adjust this value (must be > avatar_height / 2 + desired_gap) */
+}
+
+.profile-follow-btn {
+  min-width: 140px; /* Ensure button has decent width */
+  font-weight: 500;
+}
+
+.profile-bio-text {
+  white-space: pre-wrap; /* Respect line breaks in bio */
+  font-size: 1.1rem;
+  color: #495057; /* Slightly darker text */
+  line-height: 1.6;
+}

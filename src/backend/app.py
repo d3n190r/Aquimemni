@@ -2,6 +2,7 @@
 import random  # For session code generation
 import string
 from datetime import datetime
+import re # for hex color validation
 
 from flask import Blueprint, request, jsonify, session
 from flask_cors import CORS  # Add CORS support
@@ -16,6 +17,7 @@ from .Questions import (
     SliderQuestion,
     MultipleChoiceQuestion
 )
+
 from .init_flask import db, main_bp
 # --- Import Updated Models ---
 from .session import (
@@ -30,7 +32,7 @@ followers = db.Table('followers',
 
 
 # ------------------------------
-# DATABASE MODELLEN (User, Quiz - unchanged)
+# DATABASE MODELLEN (User, Quiz)
 # ------------------------------
 
 class User(db.Model):
@@ -47,8 +49,13 @@ class User(db.Model):
     username = db.Column(db.String(32), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     bio = db.Column(db.Text)
-    avatar = db.Column(db.Integer)
+    avatar = db.Column(db.Integer, default=1)  # Added default for avatar
     registered_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # --- BANNER FIELDS ---
+    banner_type = db.Column(db.String(50), default='color')  # 'image' or 'color'
+    banner_value = db.Column(db.String(255), default='#6c757d')  # Default to a neutral gray color or an image ID
+
     followed = db.relationship(
         'User', secondary=followers,
         primaryjoin=(followers.c.follower_id == id),
@@ -56,14 +63,13 @@ class User(db.Model):
         backref=db.backref('followers', lazy='dynamic'), lazy='dynamic'
     )
     quizzes = db.relationship('Quiz',
-                             backref="user",
-                             lazy=True,
-                             cascade='all, delete-orphan')  # Cascade toegevoegd
+                              backref="user",
+                              lazy=True,
+                              cascade='all, delete-orphan')
 
     def is_following(self, user):
-        # Ensure user object is valid before filtering
         if not user or not user.id:
-             return False
+            return False
         return self.followed.filter(followers.c.followed_id == user.id).count() > 0
 
     def follow(self, user):
@@ -104,7 +110,6 @@ def get_public_profile(user_id):
     if not profile_user:
         return jsonify({"error": "User not found"}), 404
 
-    # Check if the current session user is following this profile_user
     is_following_profile_user = False
     current_user_id = session.get('user_id')
     viewing_own_profile = False
@@ -117,12 +122,10 @@ def get_public_profile(user_id):
             else:
                 is_following_profile_user = current_user.is_following(profile_user)
         else:
-            # Logged-in user ID in session, but user not found in DB (edge case)
-            session.clear() # Clear invalid session
+            session.clear()
 
-    # Prepare public quizzes data (optional, but good for a profile page)
     public_quizzes = []
-    for quiz in profile_user.quizzes: # Assuming quizzes relationship is already set up on User model
+    for quiz in profile_user.quizzes:
         public_quizzes.append({
             "id": quiz.id,
             "name": quiz.name,
@@ -136,11 +139,14 @@ def get_public_profile(user_id):
         "bio": profile_user.bio,
         "avatar": profile_user.avatar,
         "registered_at": profile_user.registered_at.isoformat() if profile_user.registered_at else None,
-        "is_following": is_following_profile_user, # True if logged-in user follows this profile
-        "viewing_own_profile": viewing_own_profile, # True if logged-in user is viewing their own profile
-        "quizzes": public_quizzes, # List of quizzes by this user
+        "is_following": is_following_profile_user,
+        "viewing_own_profile": viewing_own_profile,
+        "quizzes": public_quizzes,
         "followers_count": profile_user.followers.count(),
-        "following_count": profile_user.followed.count()
+        "following_count": profile_user.followed.count(),
+        # --- RETURN BANNER DATA ---
+        "banner_type": profile_user.banner_type,
+        "banner_value": profile_user.banner_value
     }), 200
 # --- --- ---
 
@@ -825,7 +831,6 @@ def update_quiz(quiz_id):
 
 
 # --- Profile Management ---
-# ... (Houd bestaande profiel routes ongewijzigd) ...
 @main_bp.route('/profile', methods=['GET', 'POST'])
 def handle_profile():
     if 'user_id' not in session:
@@ -833,7 +838,7 @@ def handle_profile():
 
     user = db.session.get(User, session['user_id'])
     if not user:
-        session.clear() # Clear invalid session
+        session.clear()
         return jsonify({"error": "User not found or session invalid"}), 404
 
     if request.method == 'GET':
@@ -842,45 +847,75 @@ def handle_profile():
             "username": user.username,
             "bio": user.bio,
             "avatar": user.avatar,
-            "registered_at": user.registered_at.isoformat() if user.registered_at else None # Handle potential None
+            "registered_at": user.registered_at.isoformat() if user.registered_at else None,
+            # --- RETURN BANNER DATA ---
+            "banner_type": user.banner_type,
+            "banner_value": user.banner_value
         }), 200
 
-    # --- POST Method ---
     if request.method == 'POST':
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        updated = False # Flag to check if any changes were made
+        updated = False
 
         if 'username' in data:
             new_username = data['username'].strip()
             if not new_username:
-                 return jsonify({"error": "Username cannot be empty"}), 400
+                return jsonify({"error": "Username cannot be empty"}), 400
             if new_username != user.username:
                 existing_user = User.query.filter(User.username == new_username, User.id != user.id).first()
                 if existing_user:
                     return jsonify({"error": "Username already taken"}), 409
                 user.username = new_username
-                session['username'] = new_username # Update session username
+                session['username'] = new_username
                 updated = True
 
         if 'bio' in data:
-             if data['bio'] is not None and data['bio'] != user.bio:
-                 user.bio = data['bio']
-                 updated = True
+            if data['bio'] is not None and data['bio'] != user.bio:
+                user.bio = data['bio']
+                updated = True
 
         if 'avatar' in data:
             new_avatar = data['avatar']
-            if isinstance(new_avatar, int) and 1 <= new_avatar <= 12:
-                 if new_avatar != user.avatar:
-                     user.avatar = new_avatar
-                     updated = True
+            # Assuming avatar is an integer identifier for pre-defined images
+            if isinstance(new_avatar, int) and 1 <= new_avatar <= 12:  # Example range
+                if new_avatar != user.avatar:
+                    user.avatar = new_avatar
+                    updated = True
             else:
-                return jsonify({"error": "Invalid avatar number. Must be between 1 and 12."}), 400
+                return jsonify({"error": "Invalid avatar number."}), 400
+
+        # --- HANDLE BANNER UPDATE ---
+        if 'banner_type' in data and 'banner_value' in data:
+            banner_type = data['banner_type']
+            banner_value = data['banner_value']
+
+            if banner_type not in ['image', 'color']:
+                return jsonify({"error": "Invalid banner type. Must be 'image' or 'color'."}), 400
+
+            if banner_type == 'image':
+                # Banner images identified by a string key (e.g., "1", "2", ..., "5", "default")
+                # These keys correspond to image files like banner1.jpg, banner_default.jpg
+                valid_banner_identifiers = ['1', '2', '3', '4', '5', 'default'] # Define your valid identifiers
+                if not isinstance(banner_value, str) or banner_value not in valid_banner_identifiers:
+                     return jsonify({"error": f"Invalid banner image identifier. Choose from predefined options."}), 400
+
+            elif banner_type == 'color':
+                if not isinstance(banner_value, str) or not re.match(r"^#(?:[0-9a-fA-F]{3}){1,2}$", banner_value):
+                    return jsonify({"error": "Invalid color hex code. Must be e.g., #RRGGBB or #RGB."}), 400
+
+            if user.banner_type != banner_type or user.banner_value != banner_value:
+                user.banner_type = banner_type
+                user.banner_value = banner_value
+                updated = True
+
+        elif 'banner_type' in data or 'banner_value' in data:  # Only one provided
+            return jsonify({"error": "Both banner_type and banner_value are required if updating banner."}), 400
 
         if not updated:
-             return jsonify({"message": "No changes detected"}), 200
+            return jsonify({"message": "No changes detected"}), 200
 
         try:
             db.session.commit()
@@ -890,7 +925,10 @@ def handle_profile():
                     "id": user.id,
                     "username": user.username,
                     "bio": user.bio,
-                    "avatar": user.avatar
+                    "avatar": user.avatar,
+                    # --- RETURN UPDATED BANNER DATA ---
+                    "banner_type": user.banner_type,
+                    "banner_value": user.banner_value
                 }
             }), 200
         except Exception as e:

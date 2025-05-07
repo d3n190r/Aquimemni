@@ -25,7 +25,7 @@ import QuizSession from './components/feature components/QuizSession';
 import SessionResults from './components/feature components/SessionResults';
 
 // Import the new PublicProfileView component
-import PublicProfileView from './components/feature components/ProfileView'; // Adjust path if necessary
+import ProfileView from './components/feature components/ProfileView'; // Adjust path if necessary
 
 /**
  * App Component
@@ -74,7 +74,7 @@ function App() {
       {/* --- NEW PUBLIC PROFILE ROUTE --- */}
       <Route path="/profile/view/:userId" element={
         <ProtectedRoute>
-          <PublicProfileView />
+          <ProfileView />
         </ProtectedRoute>
       } />
 
