@@ -96,6 +96,54 @@ class Quiz(db.Model):
 # ROUTES / ENDPOINTS
 # ------------------------------
 
+# --- om users hun profielen te kunnen bezoeken ---
+@main_bp.route('/users/<int:user_id>/profile', methods=['GET'])
+def get_public_profile(user_id):
+    profile_user = db.session.get(User, user_id)
+
+    if not profile_user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Check if the current session user is following this profile_user
+    is_following_profile_user = False
+    current_user_id = session.get('user_id')
+    viewing_own_profile = False
+
+    if current_user_id:
+        current_user = db.session.get(User, current_user_id)
+        if current_user:
+            if current_user.id == profile_user.id:
+                viewing_own_profile = True
+            else:
+                is_following_profile_user = current_user.is_following(profile_user)
+        else:
+            # Logged-in user ID in session, but user not found in DB (edge case)
+            session.clear() # Clear invalid session
+
+    # Prepare public quizzes data (optional, but good for a profile page)
+    public_quizzes = []
+    for quiz in profile_user.quizzes: # Assuming quizzes relationship is already set up on User model
+        public_quizzes.append({
+            "id": quiz.id,
+            "name": quiz.name,
+            "created_at": quiz.created_at.isoformat(),
+            "questions_count": len(quiz.questions)
+        })
+
+    return jsonify({
+        "id": profile_user.id,
+        "username": profile_user.username,
+        "bio": profile_user.bio,
+        "avatar": profile_user.avatar,
+        "registered_at": profile_user.registered_at.isoformat() if profile_user.registered_at else None,
+        "is_following": is_following_profile_user, # True if logged-in user follows this profile
+        "viewing_own_profile": viewing_own_profile, # True if logged-in user is viewing their own profile
+        "quizzes": public_quizzes, # List of quizzes by this user
+        "followers_count": profile_user.followers.count(),
+        "following_count": profile_user.followed.count()
+    }), 200
+# --- --- ---
+
 # --- User Search, Follow/Unfollow, Auth ---
 # ... (Houd bestaande routes ongewijzigd) ...
 @main_bp.route('/users/search', methods=['GET'])
