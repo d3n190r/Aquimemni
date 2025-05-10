@@ -6,9 +6,8 @@ import './Profile.css'; // We'll create this CSS file
 const avatars = Array.from({ length: 12 }, (_, i) => `/avatars/avatar${i + 1}.png`);
 
 // --- BANNER IMAGE OPTIONS (Avatar-like) ---
-// Identifiers for predefined banner images.
+// ... (rest of your banner constants) ...
 const PREDEFINED_BANNER_IMAGE_IDS = ['1', '2', '3', '4', '5', '6','default'];
-// Optional: For display names/tooltips in the UI
 const BANNER_IMAGE_DISPLAY_NAMES = {
   '1': 'BlueLock',
   '2': 'HxH',
@@ -18,11 +17,9 @@ const BANNER_IMAGE_DISPLAY_NAMES = {
   '6': 'VinLand',
   'default': 'Subtle Default',
 };
-// Assume a consistent extension for predefined banner images
-const BANNER_IMAGE_EXTENSION = '.jpg'; // Change if your extensions differ
+const BANNER_IMAGE_EXTENSION = '.jpg';
 
 const getBannerImagePath = (identifier) => {
-  // Constructs path like /banners/banner1.jpg or /banners/banner_default.jpg
   return `/banners/banner${identifier}${BANNER_IMAGE_EXTENSION}`;
 };
 
@@ -43,8 +40,9 @@ function Profile() {
     avatar: 1,
     registeredAt: null,
     banner_type: 'color',
-    banner_value: '#6c757d' // Default if DB fields are null initially
+    banner_value: '#6c757d'
   });
+  const [originalUsername, setOriginalUsername] = useState(''); // <-- NEW: Store original username
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -67,18 +65,14 @@ function Profile() {
         const data = await response.json();
 
         const initialBannerType = data.banner_type || 'color';
-        // Ensure banner_value has a sane default based on type
         let initialBannerValue = data.banner_value;
         if (!initialBannerValue) {
             initialBannerValue = (initialBannerType === 'image') ? 'default' : '#6c757d';
         } else if (initialBannerType === 'image' && !PREDEFINED_BANNER_IMAGE_IDS.includes(initialBannerValue)) {
-            // If DB has an invalid image ID, fallback to default image
             initialBannerValue = 'default';
         } else if (initialBannerType === 'color' && !/^#(?:[0-9a-fA-F]{3}){1,2}$/.test(initialBannerValue)) {
-            // If DB has an invalid color, fallback to default color
             initialBannerValue = '#6c757d';
         }
-
 
         setProfileData({
           username: data.username,
@@ -88,21 +82,20 @@ function Profile() {
           banner_type: initialBannerType,
           banner_value: initialBannerValue
         });
-        // Initialize editing states
+        setOriginalUsername(data.username); // <-- NEW: Set original username on fetch
         setCurrentBannerType(initialBannerType);
         setCurrentBannerValue(initialBannerValue);
         if (initialBannerType === 'color') {
           setCustomColor(initialBannerValue);
         } else {
-          setCustomColor('#6c757d'); // Reset custom color if banner is an image
+          setCustomColor('#6c757d');
         }
       } catch (err) { setError('Failed to load profile'); }
     };
     fetchProfile();
   }, [navigate]);
 
-  // Update editing states when profileData changes (e.g., after save or initial load)
-   useEffect(() => {
+  useEffect(() => {
     setCurrentBannerType(profileData.banner_type);
     setCurrentBannerValue(profileData.banner_value);
     if (profileData.banner_type === 'color') {
@@ -118,19 +111,19 @@ function Profile() {
     setProfileData(prev => ({ ...prev, avatar: newAvatar }));
   };
 
+  // ... (banner handler functions remain the same) ...
   const handleBannerTypeChange = (e) => {
     const newType = e.target.value;
     setCurrentBannerType(newType);
     if (newType === 'image') {
-      // Default to the 'default' image ID or the first one if 'default' isn't in the list
       setCurrentBannerValue(PREDEFINED_BANNER_IMAGE_IDS.includes('default') ? 'default' : PREDEFINED_BANNER_IMAGE_IDS[0]);
-    } else { // color
+    } else {
       setCurrentBannerValue(customColor || predefinedBannerColors[0]?.value || '#6c757d');
     }
   };
 
   const handleBannerImageSelect = (imageId) => {
-    setCurrentBannerValue(imageId); // imageId is "1", "2", "default", etc.
+    setCurrentBannerValue(imageId);
   };
 
   const handleBannerColorSelect = (colorValue) => {
@@ -145,9 +138,27 @@ function Profile() {
     }
   };
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(''); setSuccess('');
+
+    const trimmedUsername = profileData.username.trim();
+
+    // --- NEW: Username Change Confirmation ---
+    if (trimmedUsername !== originalUsername) {
+        const confirmUsernameChange = window.confirm(
+            `You are changing your username from "${originalUsername}" to "${trimmedUsername}".\n` +
+            `This will be your new login username.\n\nAre you sure you want to proceed?`
+        );
+        if (!confirmUsernameChange) {
+            // User cancelled, revert username in input to original and stop submission
+            setProfileData(prev => ({ ...prev, username: originalUsername }));
+            return;
+        }
+    }
+    // --- End Username Change Confirmation ---
+
 
     if (currentBannerType === 'color' && !/^#(?:[0-9a-fA-F]{3}){1,2}$/.test(currentBannerValue)) {
         setError('Invalid custom color format. Please use a valid hex code (e.g., #RRGGBB or #RGB).');
@@ -164,22 +175,26 @@ function Profile() {
         headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
         credentials: 'include',
         body: JSON.stringify({
-          username: profileData.username.trim(),
+          username: trimmedUsername, // Use the (potentially new) trimmed username
           bio: profileData.bio,
           avatar: profileData.avatar,
           banner_type: currentBannerType,
-          banner_value: currentBannerValue // This will be "1", "default", or a hex color
+          banner_value: currentBannerValue
         })
       });
-      const data = await response.json(); // Get the response data
+      const data = await response.json();
 
       if (!response.ok) {
         setError(data.error || 'Update failed');
+        // If username already taken, the backend sends 409.
+        // Revert username in input if the error was due to username being taken
+        if (response.status === 409 && data.error && data.error.toLowerCase().includes('username already taken')) {
+            setProfileData(prev => ({ ...prev, username: originalUsername }));
+        }
         return;
       }
 
       if (data.user) {
-        // Update was successful and backend returned updated user data
         setProfileData(prev => ({
           ...prev,
           username: data.user.username,
@@ -187,22 +202,17 @@ function Profile() {
           avatar: data.user.avatar || 1,
           banner_type: data.user.banner_type,
           banner_value: data.user.banner_value
-          // Keep registeredAt from previous state: registeredAt: prev.registeredAt
         }));
+        setOriginalUsername(data.user.username); // <-- NEW: Update original username after successful save
         setSuccess('Profile updated successfully!');
         setTimeout(() => setSuccess(''), 3000);
       } else if (data.message && data.message === "No changes detected") {
-        // Backend indicated no changes were made, just show the message
         setSuccess(data.message);
         setTimeout(() => setSuccess(''), 3000);
-        // No need to update profileData state here
       } else {
-         // Handle unexpected successful response format
          console.warn("Profile update returned success status but unexpected data format:", data);
          setError("Profile update status unclear. Please refresh.");
       }
-
-      // In both successful update and "no changes" cases, exit edit mode
       setIsEditing(false);
 
     } catch (err) {
@@ -221,11 +231,14 @@ function Profile() {
     width: '100%',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    backgroundColor: profileData.banner_type === 'color' ? profileData.banner_value : '#e9ecef', // Fallback BG
+    backgroundColor: profileData.banner_type === 'color' ? profileData.banner_value : '#e9ecef',
     backgroundImage: profileData.banner_type === 'image' ? `url(${getBannerImagePath(profileData.banner_value)})` : 'none',
     transition: 'background-color 0.3s ease, background-image 0.3s ease',
     position: 'relative'
   };
+
+  // --- NEW: Check if username has been changed for inline warning ---
+  const usernameChanged = isEditing && profileData.username.trim() !== originalUsername && profileData.username.trim() !== "";
 
   return (
     <div className="profile-page-container">
@@ -242,13 +255,12 @@ function Profile() {
                   </button>
                   <button className="btn btn-primary" onClick={() => {
                       setIsEditing(true);
-                      // Ensure editing states are initialized correctly when entering edit mode
                       setCurrentBannerType(profileData.banner_type);
                       setCurrentBannerValue(profileData.banner_value);
                       if (profileData.banner_type === 'color') {
                         setCustomColor(profileData.banner_value);
                       } else {
-                        setCustomColor('#6c757d'); // A default for the color picker if current is image
+                        setCustomColor('#6c757d');
                       }
                     }}>
                     <i className="bi bi-pencil-square me-2"></i> Edit Profile
@@ -266,9 +278,27 @@ function Profile() {
                   {/* Username */}
                   <div className="mb-4">
                     <label htmlFor="username" className="form-label fw-bold">Username</label>
-                    <input type="text" id="username" name="username" className="form-control form-control-lg" value={profileData.username} onChange={handleInputChange} required minLength="3" maxLength="30"/>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        className="form-control form-control-lg"
+                        value={profileData.username}
+                        onChange={handleInputChange}
+                        required
+                        minLength="3"
+                        maxLength="30"
+                    />
+                    {/* --- NEW: Inline Username Change Warning --- */}
+                    {usernameChanged && (
+                        <div className="form-text text-warning mt-1">
+                            <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                            Warning: Changing your username will change your login ID.
+                        </div>
+                    )}
                   </div>
                   {/* Avatar Selection */}
+                  {/* ... (avatar selection code remains the same) ... */}
                   <div className="mb-4">
                     <label className="form-label fw-bold">Avatar</label>
                     <div className="avatar-grid">
@@ -280,12 +310,12 @@ function Profile() {
                     </div>
                   </div>
 
-                  {/* BANNER CUSTOMIZATION SECTION (Updated for avatar-like selection) */}
+                  {/* BANNER CUSTOMIZATION SECTION */}
+                  {/* ... (banner customization code remains the same) ... */}
                   <div className="mb-4">
                     <label className="form-label fw-bold">Customize Banner</label>
                     <div className="card">
                       <div className="card-body">
-                        {/* Banner Type Selection */}
                         <div className="mb-3">
                           <label className="form-label">Banner Type:</label>
                           <div>
@@ -299,8 +329,6 @@ function Profile() {
                             </div>
                           </div>
                         </div>
-
-                        {/* Banner Image Selection */}
                         {currentBannerType === 'image' && (
                           <div className="mb-3">
                             <label className="form-label">Choose an Image:</label>
@@ -319,8 +347,6 @@ function Profile() {
                             </div>
                           </div>
                         )}
-
-                        {/* Banner Color Selection */}
                         {currentBannerType === 'color' && (
                           <div className="mb-3">
                             <label className="form-label">Choose a Color:</label>
@@ -342,10 +368,10 @@ function Profile() {
                       </div>
                     </div>
                   </div>
-                  {/* END BANNER CUSTOMIZATION */}
 
                   {/* Bio */}
-                  <div className="mb-4">
+                  {/* ... (bio input code remains the same) ... */}
+                   <div className="mb-4">
                     <label htmlFor="bio" className="form-label fw-bold">Bio</label>
                     <textarea id="bio" name="bio" className="form-control" rows="5" value={profileData.bio} onChange={handleInputChange} maxLength="500" placeholder="Tell us about yourself..."/>
                     <small className="text-muted float-end">{profileData.bio.length}/500</small>
@@ -353,12 +379,17 @@ function Profile() {
                   {/* Action Buttons */}
                   <div className="d-flex gap-2 mt-4">
                     <button type="submit" className="btn btn-primary btn-lg"> <i className="bi bi-save me-2"></i> Save Changes </button>
-                    <button type="button" className="btn btn-outline-secondary btn-lg" onClick={() => setIsEditing(false)}> Cancel </button>
+                    <button type="button" className="btn btn-outline-secondary btn-lg" onClick={() => {
+                        setIsEditing(false);
+                        // Revert any unsaved changes on cancel, including username
+                        setProfileData(prev => ({ ...prev, username: originalUsername }));
+                    }}> Cancel </button>
                   </div>
                 </div>
               </form>
             ) : (
               // VIEWING PROFILE (NOT EDITING)
+              // ... (viewing mode code remains the same) ...
               <div className="card shadow-sm">
                 <div className="card-body p-4">
                   <div className="text-center profile-details-view" style={{ marginTop: '-80px', position: 'relative', zIndex: 1 }}>
