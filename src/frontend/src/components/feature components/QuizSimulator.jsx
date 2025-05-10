@@ -341,7 +341,7 @@ function QuizSimulator({ quizId: quizIdProp, sessionCode: sessionCodeProp }) {
               {sessionCode && quizIdToUse && (
                 <button
                   className="btn btn-warning btn-lg"
-                  onClick={() => navigate(`/session/${quizIdToUse}/results?session=${sessionCode}`)}
+                  onClick={() => navigate(`/session/results/${sessionCode}`)} // <<--- THIS LINE IS CHANGED
                   title="View scores of all participants" // Tooltip added
                 >
                   <i className="bi bi-trophy-fill me-2"></i> View Session Results

@@ -3,9 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 const SessionResults = () => {
-  // const { quizId } = useParams(); // Niet langer nodig voor de verwijderde knop
-  const [searchParams] = useSearchParams();
-  const sessionCode = searchParams.get('session'); // Haal session code uit URL
+  const { sessionCode } = useParams(); // <<--- THIS LINE IS CHANGED
+  // const [searchParams] = useSearchParams(); // This line can be removed if searchParams is not used for anything else.
+                                            // If it IS used for other query params, you can keep it.
   const [results, setResults] = useState([]);
   const [teamResults, setTeamResults] = useState(null); // State voor team scores
   const [sessionInfo, setSessionInfo] = useState(null); // State voor sessie info (o.a. team modus)
