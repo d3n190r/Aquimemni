@@ -1,11 +1,11 @@
 // src/frontend/src/components/Home components/Main.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Select from 'react-select'; // Assuming you use react-select for dropdown
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import Select from 'react-select';
 
 // --- Helper Components ---
 
-// Join Session Component (blijft ongewijzigd, hier voor context)
+// Join Session Component
 export const JoinSessionSection = () => {
     const navigate = useNavigate();
     const [sessionCode, setSessionCode] = useState('');
@@ -76,46 +76,82 @@ export const JoinSessionSection = () => {
     );
 };
 
-// Start/Host Session Component (blijft ongewijzigd, hier voor context)
+// Start/Host Session Component
 export const StartQuizSection = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [selectedQuiz, setSelectedQuiz] = useState(null);
     const [quizzes, setQuizzes] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [numTeams, setNumTeams] = useState('1');
 
-    const fetchQuizzes = useCallback(async () => {
-        setIsLoading(true);
+    const preselectHandledForCurrentIdRef = useRef(null);
+
+    const fetchQuizzesAndPreselect = useCallback(async () => {
+        console.log("StartQuizSection: fetchQuizzesAndPreselect called. Current location.state:", location.state, "isLoading:", isLoading);
+
+        if (!isLoading) setIsLoading(true);
         setError('');
+
+        let quizOptionsToUse = [];
+
         try {
             const response = await fetch('/api/quizzes', { credentials: 'include' });
-            if (response.ok) {
-                const data = await response.json();
-                const validQuizzes = data.filter(q => q.questions_count > 0);
-                setQuizzes(validQuizzes.map(q => ({
-                    value: q.id,
-                    label: q.name,
-                    questions_count: q.questions_count
-                })) || []);
-                if (data.length > 0 && validQuizzes.length === 0) {
-                    setError("All your quizzes have 0 questions. Add questions to host a session.");
-                }
-            } else {
-                 const errData = await response.json().catch(() => ({}));
-                 throw new Error(errData.error || 'Failed to fetch quizzes');
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || 'Failed to fetch quizzes');
             }
+            const data = await response.json();
+            const validQuizzes = data.filter(q => q.questions_count > 0);
+            quizOptionsToUse = validQuizzes.map(q => ({
+                value: q.id,
+                label: q.name,
+                questions_count: q.questions_count
+            }));
+            setQuizzes(quizOptionsToUse);
+
+            if (data.length > 0 && validQuizzes.length === 0) {
+                setError("All your quizzes have 0 questions. Add questions to host a session.");
+            } else if (data.length === 0) {
+                console.log("User has no quizzes.");
+            }
+
+            if (location.state?.preselectQuizId) {
+                if (location.state.preselectQuizId !== preselectHandledForCurrentIdRef.current) {
+                    console.log("StartQuizSection: Attempting to preselect quiz ID:", location.state.preselectQuizId);
+                    const quizToSelect = quizOptionsToUse.find(q => q.value === location.state.preselectQuizId);
+                    if (quizToSelect) {
+                        console.log("StartQuizSection: Preselecting quiz:", quizToSelect.label);
+                        setSelectedQuiz(quizToSelect);
+                        preselectHandledForCurrentIdRef.current = location.state.preselectQuizId;
+                        navigate(location.pathname, { replace: true, state: {} });
+                    } else {
+                        console.warn("StartQuizSection: PreselectQuizId not found in options:", location.state.preselectQuizId);
+                        navigate(location.pathname, { replace: true, state: {} });
+                        preselectHandledForCurrentIdRef.current = location.state.preselectQuizId;
+                    }
+                } else {
+                     if (Object.keys(location.state).length > 0) {
+                        navigate(location.pathname, { replace: true, state: {} });
+                     }
+                }
+            }
+
         } catch (err) {
-            console.error("Error fetching quizzes:", err);
-            setError('Could not load your quizzes.');
+            console.error("Error in fetchQuizzesAndPreselect:", err);
+            setError('Could not load or preselect quizzes.');
+            setQuizzes([]);
         } finally {
+            console.log("StartQuizSection: Fetch/Preselect attempt finished. Setting isLoading to false.");
             setIsLoading(false);
         }
-    }, []);
+    }, [location.state, navigate, location.pathname]); // isLoading en quizzes.length verwijderd
 
     useEffect(() => {
-        fetchQuizzes();
-    }, [fetchQuizzes]);
+        fetchQuizzesAndPreselect();
+    }, [fetchQuizzesAndPreselect]);
+
 
     const handleStartSession = async () => {
         if (!selectedQuiz) {
@@ -192,10 +228,10 @@ export const StartQuizSection = () => {
                             options={quizzes}
                             value={selectedQuiz}
                             onChange={setSelectedQuiz}
-                            isLoading={isLoading && quizzes.length === 0}
-                            isDisabled={isLoading || quizzes.length === 0}
-                            placeholder={isLoading ? "Loading quizzes..." : (quizzes.length === 0 ? "No quizzes with questions" : "Choose a quiz...")}
-                            noOptionsMessage={() => isLoading ? 'Loading...' : 'No quizzes with questions available'}
+                            isLoading={isLoading}
+                            isDisabled={isLoading || (quizzes.length === 0 && !error)}
+                            placeholder={isLoading ? "Loading quizzes..." : (quizzes.length === 0 && !error ? "No quizzes with questions available" : "Choose a quiz...")}
+                            noOptionsMessage={() => isLoading ? 'Loading...' : (error ? 'Error loading quizzes' : 'No quizzes with questions available')}
                             styles={selectStyles}
                             classNamePrefix="react-select"
                          />
@@ -211,7 +247,7 @@ export const StartQuizSection = () => {
                              min="1"
                              step="1"
                              placeholder="e.g., 1 for individual, 2+ for teams"
-                             disabled={isLoading}
+                             disabled={isLoading || (quizzes.length === 0 && !error)}
                          />
                          <div className="form-text">
                              Enter 1 for individual play, or 2 or more for team mode.
@@ -221,10 +257,10 @@ export const StartQuizSection = () => {
                     <button
                         className="btn btn-success btn-lg mt-auto"
                         onClick={handleStartSession}
-                        disabled={isLoading || !selectedQuiz || (selectedQuiz && selectedQuiz.questions_count === 0)}
+                        disabled={isLoading || !selectedQuiz || (selectedQuiz && selectedQuiz.questions_count === 0) || (quizzes.length === 0 && !error)}
                     >
                         {isLoading ? (
-                             <><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Starting...</>
+                             <><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...</>
                          ) : (
                              'Start Session'
                          )}
@@ -235,19 +271,16 @@ export const StartQuizSection = () => {
     );
 };
 
-
-// --- How It Works Component (VERNIEUWD) ---
+// --- How It Works Component ---
 export const HowItWorksSection = () => (
     <div className="col-12 mb-4">
-        <div className="card border-light-subtle shadow-sm"> {/* Lichtere rand, subtiele schaduw */}
-            <div className="card-body p-lg-4 p-3"> {/* Meer padding, vooral op grotere schermen */}
-                <h5 className="card-title text-primary mb-4"> {/* Consistent met andere titels */}
+        <div className="card border-light-subtle shadow-sm">
+            <div className="card-body p-lg-4 p-3">
+                <h5 className="card-title text-primary mb-4">
                     <i className="bi bi-info-circle-fill me-2"></i>How Aquimemni Sessions Work
                 </h5>
-                {/* Gebruik list-unstyled voor meer controle over styling */}
                 <ul className="list-unstyled">
                     <li className="mb-3 d-flex align-items-start">
-                        {/* Badge voor stapnummer */}
                         <span
                             className="badge bg-primary-subtle text-primary-emphasis rounded-pill me-3 p-2"
                             style={{ fontSize: '0.9rem', minWidth: '35px', height: '35px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
@@ -297,20 +330,14 @@ export const HowItWorksSection = () => (
     </div>
 );
 
-// --- Activity Feed Component (VERNIEUWD) ---
+// --- Activity Feed Component ---
 export const ActivitySection = () => {
-    // Placeholder voor recente activiteit - haal data op van backend indien nodig
-    const recentActivities = [
-        // Voorbeeld items (vervang met echte data)
-        // { id: 1, type: 'hosted', text: "You hosted 'History Buffs'", time: "2h ago", icon: "bi-megaphone-fill text-success", link: "/session/XYZ123/results" },
-        // { id: 2, type: 'joined', text: "Joined session 'FUNQUIZ'", time: "1d ago", icon: "bi-joystick text-primary", link: "/session/ABC789/results" },
-        // { id: 3, type: 'created', text: "Created quiz 'Science Facts'", time: "3d ago", icon: "bi-plus-square-fill text-info", link: "/quiz/123" },
-    ];
+    const recentActivities = [];
     const navigate = useNavigate();
 
     return (
         <div className="col-12 mb-4">
-            <div className="card border-light-subtle shadow-sm"> {/* Lichtere rand, subtiele schaduw */}
+            <div className="card border-light-subtle shadow-sm">
                 <div className="card-body p-lg-4 p-3">
                     <h5 className="card-title text-primary mb-3">
                         <i className="bi bi-activity me-2"></i>Recent Activity
@@ -353,17 +380,12 @@ export const ActivitySection = () => {
 // --- Main Component ---
 export const Main = ({ children }) => (
     <main className="px-md-4 py-3">
-        <div className="container-fluid"> {/* Gebruik container-fluid voor betere padding controle binnen de main */}
+        <div className="container-fluid">
             <div className="row">
-                {/* Sections for Joining and Starting */}
                 <JoinSessionSection />
                 <StartQuizSection />
-
-                {/* Other sections like How It Works or Activity Feed */}
                 <HowItWorksSection />
                 <ActivitySection />
-
-                {/* Render any additional children passed */}
                 {children}
             </div>
         </div>
