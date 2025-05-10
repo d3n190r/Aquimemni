@@ -10,12 +10,12 @@ class QuizSession(db.Model):
     code = db.Column(db.String(10), unique=True, nullable=False)
     started = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    # --- Updated Fields ---
-    # team_mode is replaced by num_teams
-    # team_mode = db.Column(db.Boolean, default=False)
     num_teams = db.Column(db.Integer, default=1, nullable=False) # Default to 1 (individual mode)
 
-    quiz = db.relationship('Quiz', backref='sessions')
+    # Modified line:
+    quiz = db.relationship('Quiz', backref=db.backref('sessions', cascade='all, delete-orphan', lazy='dynamic'))
+    # End of modified line
+
     host = db.relationship('User', backref='hosted_sessions')
     participants = db.relationship('SessionParticipant', backref='session', cascade="all, delete-orphan")
 
@@ -30,8 +30,6 @@ class SessionParticipant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.Integer, db.ForeignKey('quiz_sessions.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    # --- Updated Field ---
-    # team = db.Column(db.String(20))  # 'A', 'B' or None for individual mode
     team_number = db.Column(db.Integer) # 1, 2, 3... or None if num_teams is 1
     score = db.Column(db.Float, default=0.0)
 
