@@ -323,15 +323,46 @@ function QuizSession() {
     };
 
     const copyCodeToClipboard = async () => {
-        if (!sessionInfo?.code) return;
+        if (!sessionInfo?.code) {
+            setCopySuccess('No Code'); // Should ideally not happen if button is rendered
+            setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 2500);
+            return;
+        }
+
+        // Check for navigator.clipboard support first
+        if (!navigator.clipboard) {
+            console.error('Clipboard API not available in this browser or context.');
+            setCopySuccess('No API'); // Indicates browser doesn't support it or context is insecure
+            setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 3000);
+            // Consider alerting the user or providing manual copy instructions here
+            // e.g., alert("Copying to clipboard is not supported or allowed in this browser/context. Please copy the code manually.");
+            return;
+        }
+
         try {
             await navigator.clipboard.writeText(sessionInfo.code);
             setCopySuccess('Copied!');
-            setTimeout(() => { if (isMountedRef.current) setCopySuccess('') }, 2000);
+            setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 2000); // Shorter success message
         } catch (err) {
-            console.error('Failed to copy code: ', err);
-            setCopySuccess('Error');
-            setTimeout(() => { if (isMountedRef.current) setCopySuccess('') }, 2000);
+            console.error('Failed to copy code to clipboard: ', err);
+            let errorMsg = 'Error!'; // Default error message
+
+            if (err.name === 'NotAllowedError') {
+                errorMsg = 'Blocked'; // More specific for permission/focus issues
+                // This error can occur if:
+                // 1. The document is not focused.
+                // 2. The "clipboard-write" permission is denied by the user.
+                // 3. The document is not in a secure context (HTTPS or localhost).
+                console.warn("Clipboard write was not allowed. Possible reasons: document not focused, permission denied, or not a secure context (HTTPS/localhost).");
+                // You could provide more specific instructions to the user here.
+                // e.g., alert("Could not copy. Please ensure the browser tab is active and you've allowed clipboard permissions. This feature requires a secure connection (HTTPS).");
+            } else if (err.name === 'SecurityError') {
+                 errorMsg = 'Security'; // For other security-related restrictions
+            }
+            // Other potential errors: 'DataError', 'UnknownError'
+
+            setCopySuccess(errorMsg);
+            setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 3000); // Keep error messages a bit longer
         }
     };
 
