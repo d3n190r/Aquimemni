@@ -1184,7 +1184,18 @@ def get_session_info(code):
         return jsonify({'error': 'Session not found'}), 404
 
     host_username = quiz_session.host.username if quiz_session.host else "Unknown Host"
-    quiz_name = quiz_session.quiz.name if quiz_session.quiz else "Unknown Quiz"
+    quiz_name = "Unknown Quiz"
+    quiz_maker_username = "Unknown Maker" # NIEUW: Default waarde
+    quiz_maker_avatar = None # NIEUW: Default waarde
+    quiz_maker_id = None # NIEUW: Default waarde
+
+    if quiz_session.quiz:
+        quiz_name = quiz_session.quiz.name
+        if quiz_session.quiz.user: # De 'user' relatie op het Quiz model is de maker
+            quiz_maker_username = quiz_session.quiz.user.username
+            quiz_maker_avatar = quiz_session.quiz.user.avatar
+            quiz_maker_id = quiz_session.quiz.user.id
+
 
     return jsonify({
         'code': quiz_session.code,
@@ -1195,7 +1206,10 @@ def get_session_info(code):
         'started': quiz_session.started,
         'created_at': quiz_session.created_at.isoformat(),
         'num_teams': quiz_session.num_teams,
-        'is_team_mode': quiz_session.is_team_mode
+        'is_team_mode': quiz_session.is_team_mode,
+        'quiz_maker_username': quiz_maker_username, # NIEUW
+        'quiz_maker_avatar': quiz_maker_avatar,     # NIEUW
+        'quiz_maker_id': quiz_maker_id              # NIEUW (optioneel, voor link naar profiel)
     }), 200
 
 

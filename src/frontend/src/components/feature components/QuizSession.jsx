@@ -1,6 +1,6 @@
 // src/frontend/src/components/feature components/QuizSession.jsx
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {useNavigate, useParams} from 'react-router-dom';
+import {useNavigate, useParams, Link} from 'react-router-dom';
 import QuizSimulator from './QuizSimulator';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
@@ -9,9 +9,9 @@ function QuizSession() {
     const navigate = useNavigate();
     const [sessionInfo, setSessionInfo] = useState(null);
     const [participants, setParticipants] = useState([]);
-    const [currentUser, setCurrentUser] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null); // Belangrijk om te weten wie de host is in de UI
     const [selectedTeam, setSelectedTeam] = useState('');
-    const [isLoading, setIsLoading] = useState(true); // Controls initial loading indicator
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [joinError, setJoinError] = useState('');
     const [startError, setStartError] = useState('');
@@ -20,21 +20,19 @@ function QuizSession() {
     const [isStarting, setIsStarting] = useState(false);
     const [copySuccess, setCopySuccess] = useState('');
 
-    const pollIntervalRef = useRef(null); // Ref to store interval ID
-    const isMountedRef = useRef(true); // Ref to track mount status for async operations
+    const pollIntervalRef = useRef(null);
+    const isMountedRef = useRef(true);
 
-    // --- Fetch Current User ---
-    // This function should be stable as `navigate` is stable.
     const fetchCurrentUser = useCallback(async () => {
         console.log("Fetching current user...");
         try {
             const response = await fetch('/api/profile', { credentials: 'include' });
-            if (!isMountedRef.current) return null; // Check if component is still mounted
+            if (!isMountedRef.current) return null;
 
             if (response.ok) {
                 const userData = await response.json();
                 console.log("Current user fetched:", userData.username);
-                setCurrentUser(userData);
+                setCurrentUser(userData); // Sla de huidige gebruiker op in state
                 return userData;
             } else {
                 console.error("Failed to fetch profile, status:", response.status);
@@ -43,67 +41,58 @@ function QuizSession() {
         } catch (err) {
             if (!isMountedRef.current) return null;
             console.error("Network error fetching current user:", err);
-            setError('Could not verify user session.');
+            setError('Could not verify user session. Please try logging in again.');
             navigate('/login');
         }
         return null;
-    }, [navigate]); // Dependency: navigate (stable)
+    }, [navigate]);
 
-    // --- Fetch Session Data (Session Info + Participants) ---
-    // useCallback dependencies are stable: `code` (from URL), `navigate`
     const fetchData = useCallback(async (user) => {
-        if (!user || !code || !isMountedRef.current) return; // Added mount check
-        console.log("fetchData called for user:", user.username);
-
-        let currentSessionData = null; // To store session data within this scope
+        if (!user || !code || !isMountedRef.current) {
+             console.log("fetchData prerequisites not met:", {user, code, isMounted: isMountedRef.current});
+             return;
+        }
+        console.log("fetchData called for user:", user.username, "session code:", code);
 
         try {
-            // Fetch session info
             const sessionRes = await fetch(`/api/sessions/${code}`, { credentials: 'include' });
              if (!isMountedRef.current) return;
 
             if (!sessionRes.ok) {
-                const errText = await sessionRes.text(); // Get error text
+                const errText = await sessionRes.text();
                 console.error("Error fetching session info:", sessionRes.status, errText);
                 if (sessionRes.status === 404) {
-                    setError(`Session "${code}" not found or ended.`);
+                    setError(`Session "${code}" not found or has ended.`);
                 } else {
-                    setError(`Error fetching session: ${sessionRes.status}`);
+                    setError(`Error fetching session details (Status: ${sessionRes.status}).`);
                 }
-                // Stop polling on error
                 if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-                setIsLoading(false); // Ensure loading stops on error
-                return; // Stop fetching
+                // setIsLoading(false) wordt afgehandeld in de useEffect initialize
+                return;
             }
-            currentSessionData = await sessionRes.json(); // Store fetched data
+            const currentSessionData = await sessionRes.json();
             console.log("Session data fetched:", currentSessionData);
              if (!isMountedRef.current) return;
-            setSessionInfo(currentSessionData); // Update state
+            setSessionInfo(currentSessionData);
 
-            // --- If session started, no need for participants, stop polling ---
             if (currentSessionData.started) {
                 console.log("Session already started, stopping poll.");
                 if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-                // Let the main component render QuizSimulator based on state update
-                return; // Exit fetchData
+                return;
             }
 
-            // --- Session not started, fetch participants ---
             const participantsRes = await fetch(`/api/sessions/${code}/participants`, { credentials: 'include' });
             if (!isMountedRef.current) return;
 
             if (!participantsRes.ok) {
                 console.error("Error fetching participants:", participantsRes.status);
-                // Handle participant fetch error (e.g., show partial data?)
-                 // Avoid overwriting a more critical session error
-                if (!error) setError("Could not update participant list.");
+                if (!error && isMountedRef.current) setError("Could not update participant list.");
             } else {
                 const participantsData = await participantsRes.json();
                 console.log("Participants fetched:", participantsData.length);
                  if (!isMountedRef.current) return;
                 setParticipants(participantsData);
 
-                // Update join status/team based on fresh participant data
                 const currentUserParticipant = participantsData.find(p => p.user_id === user.id);
                 if (currentUserParticipant) {
                     setIsJoined(true);
@@ -112,127 +101,100 @@ function QuizSession() {
                     setIsJoined(false);
                     setSelectedTeam('');
                 }
-                setError(''); // Clear previous non-critical errors if fetches succeed
+                 if (isMountedRef.current && error !== `Session "${code}" not found or has ended.`) setError('');
             }
 
         } catch (err) {
              if (!isMountedRef.current) return;
             console.error("Error inside fetchData:", err);
-            if (!error) setError('Failed to fetch session data.');
+            if (!error && isMountedRef.current) setError('Failed to fetch session data. Please refresh.');
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        } finally {
-            // --- Only set loading to false on the *initial* fetch ---
-            // We know it's initial if `isLoading` is currently true
-             // This check should only happen once after the first successful or failed fetch attempt
-             // This logic is moved to the initial useEffect hook for clarity.
         }
-    }, [code, navigate, error]); // Added 'error' dependency back cautiously, monitor if it causes loops
+    }, [code, navigate, error]); // Let op: 'error' in dependencies kan loops veroorzaken als niet goed beheerd.
 
-    // --- Effect for Initial Load ---
     useEffect(() => {
         isMountedRef.current = true;
-        console.log("QuizSession Mount/Code Change - Initial Load Effect");
-        setIsLoading(true); // Start loading indicator
-        setError(''); // Clear errors on mount/code change
+        console.log("QuizSession Mount/Code Change - Initial Load Effect. Code:", code);
+        setIsLoading(true);
+        setError('');
+        setSessionInfo(null);
+        setParticipants([]);
 
-        let didCancel = false; // Flag for cleanup
+        let didCancel = false;
 
         const initialize = async () => {
-            const user = await fetchCurrentUser();
+            const user = await fetchCurrentUser(); // Haal eerst de ingelogde gebruiker op
             if (user && !didCancel) {
-                await fetchData(user); // Perform initial fetch
-                 // Stop loading indicator *after* the first fetch attempt completes
-                if (isMountedRef.current && !didCancel) {
-                    setIsLoading(false);
-                }
-            } else if (!didCancel) {
-                // If user fetch failed or component unmounted during fetch
-                 if (isMountedRef.current) {
-                    setIsLoading(false); // Stop loading if user fetch failed but component still mounted
-                 }
+                await fetchData(user);
+            }
+            if (isMountedRef.current && !didCancel) {
+                 setIsLoading(false);
             }
         };
 
-        initialize();
+        if (code) {
+            initialize();
+        } else {
+            setError("No session code provided in URL.");
+            setIsLoading(false);
+        }
 
-        // Cleanup function
         return () => {
             console.log("QuizSession Unmount Cleanup - Initial Load Effect");
             isMountedRef.current = false;
             didCancel = true;
-            // Clear interval if it was somehow started early
             if (pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current);
                 pollIntervalRef.current = null;
             }
         };
-        // Dependencies: fetchCurrentUser (stable), fetchData (stable)
-        // `code` change triggers remount via React Router, restarting this effect.
-    }, [fetchCurrentUser, fetchData]); // Removed code, router handles remount
+    }, [code, fetchCurrentUser, fetchData]);
 
-    // --- Effect for Managing Polling ---
     useEffect(() => {
-        console.log("Polling Effect Check:", { isLoading, hasCurrentUser: !!currentUser, hasSessionInfo: !!sessionInfo, isStarted: sessionInfo?.started });
-
-        // Clear previous interval unconditionally before deciding to set a new one
         if (pollIntervalRef.current) {
-            console.log("Clearing existing interval...");
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
         }
-
-        // Conditions to START polling:
-        // 1. Initial loading is finished (`!isLoading`)
-        // 2. We have the current user (`currentUser` is not null)
-        // 3. We have session info (`sessionInfo` is not null)
-        // 4. The session is NOT started (`!sessionInfo.started`)
-        if (!isLoading && currentUser && sessionInfo && !sessionInfo.started) {
-            console.log("Starting polling...");
+        if (!isLoading && currentUser && sessionInfo && !sessionInfo.started && isMountedRef.current) {
+            console.log("Starting polling for session:", sessionInfo.code);
             pollIntervalRef.current = setInterval(() => {
                 console.log("Polling...");
-                // No need to check mount status here, interval cleared on unmount
-                fetchData(currentUser); // Pass current user
-            }, 5000); // Poll every 5 seconds
+                if (isMountedRef.current) {
+                    fetchData(currentUser);
+                } else {
+                    if(pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                }
+            }, 5000);
         } else {
             console.log("Conditions not met for polling OR session started. Polling stopped/not started.");
         }
-
-        // Cleanup: Clear interval if dependencies change or component unmounts
         return () => {
             if (pollIntervalRef.current) {
                 console.log("Clearing poll interval in Polling Effect cleanup.");
                 clearInterval(pollIntervalRef.current);
-                pollIntervalRef.current = null; // Explicitly nullify
+                pollIntervalRef.current = null;
             }
         };
-        // Dependencies: Only re-evaluate when these specific values change.
-        // `sessionInfo?.started` is key. `fetchData` is stable due to useCallback.
-    }, [isLoading, currentUser, sessionInfo?.started, fetchData]);
+    }, [isLoading, currentUser, sessionInfo, fetchData]);
 
-
-    // --- Event Handlers (Join, Start, Copy) ---
 
     const handleJoinTeam = async (e) => {
         e.preventDefault();
         if (!sessionInfo || !currentUser || isJoining) return;
         setJoinError('');
         setIsJoining(true);
-
         let teamNumberToSend = null;
         if (sessionInfo.is_team_mode) {
             if (!selectedTeam) {
                 setJoinError(`Please select a team (1-${sessionInfo.num_teams}).`);
-                setIsJoining(false);
-                return;
+                setIsJoining(false); return;
             }
             teamNumberToSend = parseInt(selectedTeam, 10);
             if (isNaN(teamNumberToSend) || teamNumberToSend < 1 || teamNumberToSend > sessionInfo.num_teams) {
                  setJoinError(`Invalid team number. Choose 1-${sessionInfo.num_teams}.`);
-                 setIsJoining(false);
-                 return;
+                 setIsJoining(false); return;
             }
         }
-
         try {
             const response = await fetch(`/api/sessions/${code}/join`, {
                 method: 'POST',
@@ -242,15 +204,12 @@ function QuizSession() {
             });
             const result = await response.json();
             if (response.ok) {
-                console.log('Join/Switch result:', result.message);
                 setIsJoined(true);
-                // Manually trigger data refresh instead of waiting for poll
-                await fetchData(currentUser);
+                if(isMountedRef.current) await fetchData(currentUser);
             } else {
                 setJoinError(result.error || 'Failed to join/switch team.');
             }
         } catch (err) {
-            console.error("Network error joining/switching team:", err);
             setJoinError('A network error occurred.');
         } finally {
              if (isMountedRef.current) setIsJoining(false);
@@ -258,135 +217,83 @@ function QuizSession() {
     };
 
     const handleStartQuiz = async () => {
-        // Ensure we have sessionInfo and currentUser before proceeding
-        if (!sessionInfo || !currentUser || isStarting || currentUser.id !== sessionInfo.host_id) {
-            console.warn("Start quiz conditions not met:", { hasSession: !!sessionInfo, hasUser: !!currentUser, isStarting, isHost: currentUser?.id === sessionInfo?.host_id });
-            return;
-        }
+        if (!sessionInfo || !currentUser || isStarting || currentUser.id !== sessionInfo.host_id) return;
         setStartError('');
-        setIsStarting(true); // Keep showing "Starting..."
-
+        setIsStarting(true);
         try {
-            // --- Step 1: Tell the backend to start the session ---
-            const response = await fetch(`/api/sessions/${code}/start`, {
-                method: 'POST',
-                credentials: 'include'
-            });
+            const response = await fetch(`/api/sessions/${code}/start`, { method: 'POST', credentials: 'include' });
             const result = await response.json();
-
             if (response.ok) {
-                console.log('Backend start successful:', result.message);
-
-                // --- Step 2: Stop regular polling ---
-                if (pollIntervalRef.current) {
-                    clearInterval(pollIntervalRef.current);
-                    pollIntervalRef.current = null;
-                    console.log("Polling stopped.");
-                }
-
-                // --- Step 3: Immediately fetch the final session state ---
-                // This ensures we have started=true AND the quiz_id before transitioning.
-                console.log("Immediately fetching updated session data after start...");
-                // We pass 'currentUser' which should still be loaded from the initial fetch.
-                // If there's a chance currentUser could be null here, more robust error handling is needed.
-                if (currentUser && isMountedRef.current) {
-                    // Call fetchData, which will update sessionInfo state and trigger the re-render
-                    await fetchData(currentUser);
-                    console.log("Immediate fetch completed. State should be updated.");
-                    // At this point, the component should re-render.
-                    // The check `if (sessionInfo.started)` should become true,
-                    // and it should render QuizSimulator with the correct quiz_id from the fetched data.
-                } else {
-                     // This case indicates a problem with the component's state (user missing or unmounted)
-                    console.error("Cannot perform immediate fetch: currentUser missing or component unmounted.");
-                    setStartError("Failed to update session state after starting. Please refresh.");
-                    if (isMountedRef.current) setIsStarting(false); // Allow retry? Or navigate away?
-                }
-
+                if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                // Na het starten, fetchData opnieuw om sessionInfo.started bij te werken
+                if (currentUser && isMountedRef.current) await fetchData(currentUser);
             } else {
-                // --- Handle backend start failure ---
-                console.error("Backend failed to start session:", result.error);
                 setStartError(result.error || 'Failed to start quiz on the server.');
-                 // Re-enable the button if starting failed
-                 if (isMountedRef.current) setIsStarting(false);
+                if (isMountedRef.current) setIsStarting(false);
             }
         } catch (err) {
-            // --- Handle network or other errors during start/fetch ---
-            console.error("Error during start quiz process:", err);
             setStartError('A network error occurred while trying to start.');
-             // Re-enable button on error
-             if (isMountedRef.current) setIsStarting(false);
+            if (isMountedRef.current) setIsStarting(false);
         }
-        // Note: We don't explicitly set isStarting back to false on success,
-        // because the component should transition to QuizSimulator, effectively unmounting this view.
-        // If the immediate fetch fails, we set it back to false above.
+        // setIsStarting(false) wordt afgehandeld door de re-render naar QuizSimulator of bij error
     };
 
     const copyCodeToClipboard = async () => {
         if (!sessionInfo?.code) {
-            setCopySuccess('No Code'); // Should ideally not happen if button is rendered
+            setCopySuccess('No Code');
             setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 2500);
             return;
         }
-
-        // Check for navigator.clipboard support first
         if (!navigator.clipboard) {
-            console.error('Clipboard API not available in this browser or context.');
-            setCopySuccess('No API'); // Indicates browser doesn't support it or context is insecure
+            setCopySuccess('No API');
             setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 3000);
-            // Consider alerting the user or providing manual copy instructions here
-            // e.g., alert("Copying to clipboard is not supported or allowed in this browser/context. Please copy the code manually.");
             return;
         }
-
         try {
             await navigator.clipboard.writeText(sessionInfo.code);
             setCopySuccess('Copied!');
-            setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 2000); // Shorter success message
+            setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 2000);
         } catch (err) {
-            console.error('Failed to copy code to clipboard: ', err);
-            let errorMsg = 'Error!'; // Default error message
-
-            if (err.name === 'NotAllowedError') {
-                errorMsg = 'Blocked'; // More specific for permission/focus issues
-                // This error can occur if:
-                // 1. The document is not focused.
-                // 2. The "clipboard-write" permission is denied by the user.
-                // 3. The document is not in a secure context (HTTPS or localhost).
-                console.warn("Clipboard write was not allowed. Possible reasons: document not focused, permission denied, or not a secure context (HTTPS/localhost).");
-                // You could provide more specific instructions to the user here.
-                // e.g., alert("Could not copy. Please ensure the browser tab is active and you've allowed clipboard permissions. This feature requires a secure connection (HTTPS).");
-            } else if (err.name === 'SecurityError') {
-                 errorMsg = 'Security'; // For other security-related restrictions
-            }
-            // Other potential errors: 'DataError', 'UnknownError'
-
+            let errorMsg = 'Error!';
+            if (err.name === 'NotAllowedError') errorMsg = 'Blocked';
+            else if (err.name === 'SecurityError') errorMsg = 'Security';
             setCopySuccess(errorMsg);
-            setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 3000); // Keep error messages a bit longer
+            setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 3000);
         }
     };
 
-    // --- Render Logic ---
 
-    // 1. Initial Loading State
     if (isLoading) {
         return (
             <div className="container mt-5 text-center">
-                <div className="spinner-border text-primary" role="status">
+                <div className="spinner-border text-primary" style={{width: '3rem', height: '3rem'}} role="status">
                     <span className="visually-hidden">Loading...</span>
                 </div>
-                <p className="mt-2">Loading Session...</p>
+                <p className="mt-2 fs-5">Loading Session...</p>
             </div>
         );
     }
 
-    // 2. Error State (Session not found, fetch errors)
     if (error) {
         return (
             <div className="container mt-5">
                 <div className="alert alert-danger text-center" role="alert">
-                    {error}
+                    <h4 className="alert-heading">Error</h4>
+                    <p>{error}</p>
                 </div>
+                <div className="text-center mt-3">
+                    <button className="btn btn-primary" onClick={() => navigate('/home')}>
+                        <i className="bi bi-house-door me-1"></i> Back to Home
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!sessionInfo) { // Fallback voor als sessionInfo nog null is na laden
+         return (
+            <div className="container mt-5">
+                <div className="alert alert-warning text-center">Could not load session information. Please refresh or go back home.</div>
                 <div className="text-center mt-3">
                     <button className="btn btn-secondary" onClick={() => navigate('/home')}>
                         <i className="bi bi-house-door me-1"></i> Back to Home
@@ -396,19 +303,12 @@ function QuizSession() {
         );
     }
 
-    // 3. Session Info missing after load (should be rare)
-    if (!sessionInfo) {
-         return <div className="container mt-5"><div className="alert alert-warning text-center">Could not load session information. Please refresh or go back home.</div> <div className="text-center mt-3"><button className="btn btn-secondary" onClick={() => navigate('/home')}><i className="bi bi-house-door me-1"></i> Back to Home</button></div></div>;
-    }
-
-    // 4. Session Started -> Render Simulator
+    // Als de sessie gestart is, render QuizSimulator
     if (sessionInfo.started) {
         const isCurrentUserHost = currentUser?.id === sessionInfo.host_id;
-        console.log("Rendering QuizSimulator, isHost:", isCurrentUserHost);
         return <QuizSimulator quizId={sessionInfo.quiz_id} sessionCode={code} isHost={isCurrentUserHost} />;
     }
 
-    // 5. Render Lobby View
     const isCurrentUserHost = currentUser?.id === sessionInfo.host_id;
 
     const renderTeamSelection = () => {
@@ -427,63 +327,106 @@ function QuizSession() {
         );
     };
 
-    // --- Lobby JSX ---
     return (
         <div className="container mt-4">
             <div className="row justify-content-center">
                 <div className="col-md-10 col-lg-8">
-                    {/* Session Header Card */}
                     <div className="card shadow-sm mb-4">
-                        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2 py-3 px-4">
                             <h4 className="mb-0">Quiz Session Lobby</h4>
-                            <div className="d-flex align-items-center bg-primary p-2 rounded">
-                                <span className="me-2 text-white-50">Code:</span>
-                                <strong className="bg-light text-primary px-2 py-1 rounded me-2 user-select-all font-monospace" style={{ fontSize: '1.1rem' }} >
+                            <div className="d-flex align-items-center">
+                                <span className="me-2 text-white-75">Code:</span>
+                                <strong
+                                    className="bg-light text-primary px-3 py-1 rounded-pill me-2 user-select-all font-monospace shadow-sm"
+                                    style={{ fontSize: '1.1rem', letterSpacing: '1px' }}
+                                >
                                     {sessionInfo.code}
                                 </strong>
-                                <button className={`btn btn-sm ${copySuccess === 'Copied!' ? 'btn-success' : (copySuccess === 'Error' ? 'btn-danger' : 'btn-outline-light')}`} onClick={copyCodeToClipboard} title="Copy session code" disabled={!!copySuccess} style={{ width: '80px' }} >
+                                <button
+                                    className={`btn btn-sm ${
+                                        copySuccess === 'Copied!' ? 'btn-light text-success' :
+                                        (copySuccess && copySuccess !== '') ? 'btn-danger' : 
+                                        'btn-outline-light'
+                                    }`}
+                                    onClick={copyCodeToClipboard}
+                                    title={
+                                        copySuccess === 'Copied!' ? 'Code copied to clipboard!' :
+                                        (copySuccess === 'No API') ? 'Clipboard API not available.' :
+                                        (copySuccess === 'Blocked') ? 'Copying blocked by browser.' :
+                                        (copySuccess && copySuccess !== '') ? `Copy failed: ${copySuccess}` :
+                                        'Copy session code'
+                                    }
+                                    disabled={!!copySuccess}
+                                    style={{ minWidth: '85px', textAlign: 'center', fontWeight: '500' }}
+                                >
                                     {copySuccess ? copySuccess : <><i className="bi bi-clipboard me-1"></i> Copy</>}
                                 </button>
                             </div>
                         </div>
-                        <div className="card-body text-center">
-                            <h5 className="card-title mb-1">Quiz: <span className="text-primary">{sessionInfo.quiz_name || 'Loading...'}</span></h5>
-                            <p className="card-text mb-3">Hosted by: <strong>{sessionInfo.host_username || '...'}</strong></p>
-                            <p className="text-muted fst-italic">Waiting for the host to start the quiz...</p>
-                            {sessionInfo.is_team_mode && <p>Playing in <strong>{sessionInfo.num_teams} teams</strong> mode.</p>}
+                        <div className="card-body text-center p-4">
+                            {/* AANGEPAST BLOK VOOR QUIZ INFO */}
+                            <h4 className="card-title mb-2 fs-4">
+                                <span className="text-primary fw-bold">{sessionInfo.quiz_name || 'Loading Quiz...'}</span>
+                            </h4>
+                            {sessionInfo.quiz_maker_username && sessionInfo.quiz_maker_username !== "Unknown Maker" && (
+                                <p className="card-text text-muted small mb-1" style={{fontSize: '0.9rem'}}>
+                                    Quiz created by:{' '}
+                                    <Link to={`/profile/view/${sessionInfo.quiz_maker_id}`} className="fw-medium text-decoration-none text-info-emphasis">
+                                        {sessionInfo.quiz_maker_avatar && <img src={`/avatars/avatar${sessionInfo.quiz_maker_avatar || 1}.png`} alt="" width="20" height="20" className="rounded-circle me-1 align-middle"/>}
+                                        {sessionInfo.quiz_maker_username}
+                                    </Link>
+                                </p>
+                            )}
+                            <p className="card-text mb-3 fs-6">
+                                Session hosted by:{' '}
+                                <Link to={`/profile/view/${sessionInfo.host_id}`} className="fw-bold text-decoration-none text-success-emphasis">
+                                    {/* Toon avatar van de host (currentUser is de ingelogde user, sessionInfo.host is de host van de sessie) */}
+                                    {/* Als je de avatar van de host specifiek wilt, moet die ook via sessionInfo komen, of currentUser checken als die de host is. */}
+                                    <img src={`/avatars/avatar${ isCurrentUserHost ? currentUser?.avatar : (sessionInfo.host_avatar || 1)}.png`} alt="" width="20" height="20" className="rounded-circle me-1 align-middle"/>
+                                    {sessionInfo.host_username || '...'}
+                                </Link>
+                            </p>
+                            {/* EINDE AANGEPAST BLOK */}
 
-                            {/* Join/Switch Team Section (Participants only) */}
+                            <hr className="my-3" />
+
+                            <p className="text-muted fst-italic mb-2">Waiting for the host to start the quiz...</p>
+                            {sessionInfo.is_team_mode && <p className="mb-3"><span className="badge bg-info-subtle text-info-emphasis fs-6 py-2 px-3 rounded-pill">Playing in <strong>{sessionInfo.num_teams} teams</strong> mode</span></p>}
+
                             {!isCurrentUserHost && (
                                 <div className="mt-4 border-top pt-3">
                                     {renderTeamSelection()}
-                                    <button className="btn btn-success btn-lg" onClick={handleJoinTeam} disabled={isJoining || (sessionInfo.is_team_mode && !selectedTeam)} >
-                                        {isJoining ? <><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...</> : ( isJoined ? (sessionInfo.is_team_mode ? 'Switch Team' : 'Rejoin Session') : (sessionInfo.is_team_mode ? 'Join Selected Team' : 'Join Session') )}
+                                    <button className="btn btn-success btn-lg w-100 py-2 fs-5 shadow-sm" onClick={handleJoinTeam} disabled={isJoining || (sessionInfo.is_team_mode && !selectedTeam)} >
+                                        {isJoining ? <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processing...</> : ( isJoined ? (sessionInfo.is_team_mode ? 'Switch Team' : 'Rejoin Session') : (sessionInfo.is_team_mode ? 'Join Selected Team' : 'Join Session') )}
                                     </button>
-                                    {joinError && <div className="alert alert-warning mt-3 p-2">{joinError}</div>}
+                                    {joinError && <div className="alert alert-warning mt-3 p-2 small">{joinError}</div>}
                                 </div>
                             )}
 
-                            {/* Start Quiz Button (Host only) */}
                             {isCurrentUserHost && (
                                 <div className="mt-4 border-top pt-3">
-                                    <button className="btn btn-warning btn-lg px-5" onClick={handleStartQuiz} disabled={isStarting || participants.length === 0} >
-                                        {isStarting ? <><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Starting...</> : 'Start Quiz!' }
+                                    <button
+                                        className="btn btn-warning btn-lg w-75 py-2 fs-5 shadow-sm mx-auto d-block"
+                                        onClick={handleStartQuiz}
+                                        disabled={isStarting || participants.length === 0}
+                                        style={{color: '#212529'}}
+                                    >
+                                        {isStarting ? <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Starting Quiz...</> : 'Start Quiz!' }
                                     </button>
-                                    {participants.length === 0 && !isStarting && <p className="text-muted mt-2 small">Waiting for participants to join...</p>}
-                                    {startError && <div className="alert alert-danger mt-3 p-2">{startError}</div>}
+                                    {participants.length === 0 && !isStarting && <p className="text-danger mt-2 small fst-italic">Waiting for participants to join before starting.</p>}
+                                    {startError && <div className="alert alert-danger mt-3 p-2 small">{startError}</div>}
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Participants List Card */}
-                    <div className="card shadow-sm">
-                         <div className="card-header bg-light">
-                            <h5 className="mb-0">Participants ({participants.length})</h5>
+                    <div className="card shadow-sm border-0 rounded-4">
+                         <div className="card-header bg-light-subtle p-3">
+                            <h5 className="mb-0 fw-medium">Participants ({participants.length})</h5>
                         </div>
                         <ul className="list-group list-group-flush" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                             {participants.length === 0 ? (
-                                <li className="list-group-item text-muted text-center fst-italic">No one has joined yet...</li>
+                                <li className="list-group-item text-muted text-center fst-italic py-3">No one has joined yet... Be the first!</li>
                             ) : (
                                 participants
                                     .sort((a, b) => {
@@ -492,27 +435,26 @@ function QuizSession() {
                                         return a.username.localeCompare(b.username);
                                     })
                                     .map((p) => (
-                                        <li key={p.user_id} className="list-group-item d-flex justify-content-between align-items-center">
+                                        <li key={p.user_id} className="list-group-item d-flex justify-content-between align-items-center py-2 px-3">
                                             <div className="d-flex align-items-center">
-                                                <img src={`/avatars/avatar${p.avatar || 1}.png`} alt="" width="35" height="35" className="rounded-circle me-2 shadow-sm" />
+                                                <img src={`/avatars/avatar${p.avatar || 1}.png`} alt={p.username} width="35" height="35" className="rounded-circle me-2 shadow-sm border border-light"/>
                                                 <span className={`fw-medium ${p.user_id === currentUser?.id ? 'text-primary' : ''}`}>
                                                     {p.username}
-                                                    {p.user_id === sessionInfo.host_id && <span className="badge bg-dark text-white rounded-pill ms-2 small">Host</span>}
+                                                    {p.user_id === sessionInfo.host_id && <span className="badge bg-dark-subtle text-dark-emphasis rounded-pill ms-2 small py-1 px-2">Host</span>}
                                                     {p.user_id === currentUser?.id && !isCurrentUserHost && <span className="text-muted ms-1 small">(You)</span>}
                                                 </span>
                                             </div>
                                             {sessionInfo.is_team_mode && p.team_number && (
-                                                <span className={`badge bg-info-subtle text-info-emphasis rounded-pill fs-6`}>Team {p.team_number}</span>
+                                                <span className={`badge bg-info-subtle text-info-emphasis rounded-pill fs-6 py-1 px-2`}>Team {p.team_number}</span>
                                             )}
                                         </li>
                                     ))
                             )}
                         </ul>
                     </div>
-                    {/* Back to Home Button */}
-                     <div className="text-center mt-4">
+                     <div className="text-center mt-4 mb-3">
                          <button className="btn btn-outline-secondary" onClick={() => navigate('/home')}>
-                             <i className="bi bi-house-door me-1"></i> Back to Home
+                             <i className="bi bi-house-door-fill me-1"></i> Back to Home
                          </button>
                     </div>
                 </div>
