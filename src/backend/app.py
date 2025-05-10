@@ -2,7 +2,7 @@
 import random  # For session code generation
 import string
 from datetime import datetime
-import re # for hex color validation
+import re  # for hex color validation
 
 from flask import Blueprint, request, jsonify, session
 from flask_cors import CORS  # Add CORS support
@@ -148,6 +148,8 @@ def get_public_profile(user_id):
         "banner_type": profile_user.banner_type,
         "banner_value": profile_user.banner_value
     }), 200
+
+
 # --- --- ---
 
 # --- User Search, Follow/Unfollow, Auth ---
@@ -158,7 +160,7 @@ def search_users():
         return jsonify({"error": "Not logged in"}), 401
 
     current_user = User.query.get(session['user_id'])
-    if not current_user: # Handle case where user might have been deleted
+    if not current_user:  # Handle case where user might have been deleted
         session.clear()
         return jsonify({"error": "Invalid session"}), 401
 
@@ -183,13 +185,14 @@ def search_users():
         "is_following": current_user.is_following(u)
     } for u in users]), 200
 
+
 @main_bp.route('/quizzes/search', methods=['GET'])
 def search_quizzes():
     if 'user_id' not in session:
         return jsonify({"error": "Not logged in"}), 401
 
     current_user = User.query.get(session['user_id'])
-    if not current_user: # Handle case where user might have been deleted
+    if not current_user:  # Handle case where user might have been deleted
         session.clear()
         return jsonify({"error": "Invalid session"}), 401
 
@@ -203,29 +206,30 @@ def search_quizzes():
 
     quizzes = (
         Quiz.query
-            .join(User)
-            .filter(
-                Quiz.user_id != session['user_id'],
-                or_(
-                    Quiz.name.ilike(name_pattern),
-                    User.username.ilike(user_pattern)
-                )
+        .join(User)
+        .filter(
+            Quiz.user_id != session['user_id'],
+            or_(
+                Quiz.name.ilike(name_pattern),
+                User.username.ilike(user_pattern)
             )
-            .order_by(Quiz.name.asc())
-            .limit(10)
-            .all()
+        )
+        .order_by(Quiz.name.asc())
+        .limit(10)
+        .all()
     )
 
     result = [{
         "id": quiz.id,
         "name": quiz.name,
-        "creator": quiz.user.username if quiz.user else 'Unknown', # Handle potential missing user
+        "creator": quiz.user.username if quiz.user else 'Unknown',  # Handle potential missing user
         "creator_avatar": quiz.user.avatar if quiz.user else None,
         "created_at": quiz.created_at.isoformat(),
         "questions_count": len(quiz.questions)
     } for quiz in quizzes]
 
     return jsonify(result), 200
+
 
 @main_bp.route('/users/all', methods=['GET'])
 def get_all_users():
@@ -242,6 +246,7 @@ def get_all_users():
         "avatar": u.avatar,
         "is_following": current_user.is_following(u)
     } for u in users]), 200
+
 
 @main_bp.route('/follow/<int:user_id>', methods=['POST'])
 def follow_user(user_id):
@@ -265,6 +270,7 @@ def follow_user(user_id):
     db.session.commit()
     return jsonify({"message": f"Now following {user_to_follow.username}"}), 200
 
+
 @main_bp.route('/unfollow/<int:user_id>', methods=['POST'])
 def unfollow_user(user_id):
     if 'user_id' not in session:
@@ -283,6 +289,7 @@ def unfollow_user(user_id):
     current_user.unfollow(user_to_unfollow)
     db.session.commit()
     return jsonify({"message": f"Unfollowed {user_to_unfollow.username}"}), 200
+
 
 @main_bp.route('/followers/<int:follower_id>', methods=['DELETE'])
 def remove_follower(follower_id):
@@ -304,6 +311,7 @@ def remove_follower(follower_id):
     db.session.commit()
     return jsonify({"message": "Follower removed successfully"}), 200
 
+
 @main_bp.route('/followers', methods=['GET'])
 def get_followers():
     if 'user_id' not in session:
@@ -318,7 +326,7 @@ def get_followers():
         "id": u.id,
         "username": u.username,
         "avatar": u.avatar,
-        "is_following": current_user.is_following(u) # Check if current user follows their follower back
+        "is_following": current_user.is_following(u)  # Check if current user follows their follower back
     } for u in current_user.followers.all()]), 200
 
 
@@ -337,6 +345,7 @@ def get_following():
         "username": u.username,
         "avatar": u.avatar
     } for u in user.followed.all()]), 200
+
 
 @main_bp.route('/signup', methods=['POST'])
 def signup():
@@ -395,9 +404,9 @@ def login():
 
     # Backend length validation (consistentie)
     if len(username) > 32:
-        return jsonify({"error": "Invalid login credentials"}), 401 # Username too long
+        return jsonify({"error": "Invalid login credentials"}), 401  # Username too long
     if len(password) > 64:
-         return jsonify({"error": "Invalid login credentials"}), 401 # Password too long
+        return jsonify({"error": "Invalid login credentials"}), 401  # Password too long
 
     user = User.query.filter_by(username=username).first()
     if user is None or not check_password_hash(user.password_hash, password):
@@ -407,7 +416,8 @@ def login():
     session['user_id'] = user.id
     session['username'] = user.username
 
-    return jsonify({"message": f"Logged in as {user.username}", "user": {"id": user.id, "username": user.username, "avatar": user.avatar}}), 200
+    return jsonify({"message": f"Logged in as {user.username}",
+                    "user": {"id": user.id, "username": user.username, "avatar": user.avatar}}), 200
 
 
 @main_bp.route('/home', methods=['GET'])
@@ -416,11 +426,11 @@ def home():
         return jsonify({"error": "Niet gemachtigd"}), 401
 
     user = User.query.get(session['user_id'])
-    if not user: # Check if user still exists
+    if not user:  # Check if user still exists
         session.clear()
         return jsonify({"error": "Niet gemachtigd"}), 401
 
-    username = session.get('username', 'Onbekend') # Fallback, though should be set on login
+    username = session.get('username', 'Onbekend')  # Fallback, though should be set on login
     return jsonify({"message": f"Welkom, {username}! Dit is een beschermde pagina."}), 200
 
 
@@ -429,8 +439,8 @@ def logout():
     session.clear()
     return jsonify({"message": "Uitgelogd"}), 200
 
+
 # --- Quiz Management ---
-# ... (Houd bestaande quiz routes ongewijzigd) ...
 @main_bp.route('/quizzes', methods=['GET'])
 def get_user_quizzes():
     if 'user_id' not in session:
@@ -454,20 +464,20 @@ def get_user_quizzes():
                 "text": question.question_text
             }
 
-            if hasattr(question, 'options'): # Check if it's MultipleChoiceQuestion
-                 q_data['options'] = [{
+            if hasattr(question, 'options'):  # Check if it's MultipleChoiceQuestion
+                q_data['options'] = [{
                     "id": opt.id,
                     "text": opt.text,
                     "is_correct": opt.is_correct
                 } for opt in question.options]
-            elif hasattr(question, 'min_value'): # Check if it's SliderQuestion
+            elif hasattr(question, 'min_value'):  # Check if it's SliderQuestion
                 q_data.update({
                     "min": question.min_value,
                     "max": question.max_value,
                     "step": question.step,
                     "correct_value": question.correct_value
                 })
-            elif hasattr(question, 'max_length'): # Check if it's TextInputQuestion
+            elif hasattr(question, 'max_length'):  # Check if it's TextInputQuestion
                 q_data.update({
                     "max_length": question.max_length,
                     "correct_answer": question.correct_answer
@@ -480,7 +490,7 @@ def get_user_quizzes():
             "name": quiz.name,
             "created_at": quiz.created_at.isoformat(),
             "questions": global_questions,
-            "questions_count": len(global_questions) # Add question count
+            "questions_count": len(global_questions)  # Add question count
         })
 
     return jsonify(quizzes_data), 200
@@ -501,19 +511,17 @@ def create_quiz():
     if not data or 'name' not in data or not data['name'].strip():
         return jsonify({"error": "Quiz name required"}), 400
     if 'questions' not in data or not isinstance(data['questions'], list):
-         return jsonify({"error": "Invalid questions format"}), 400
+        return jsonify({"error": "Invalid questions format"}), 400
 
     try:
         new_quiz = Quiz(
             user_id=session['user_id'],
-            name=data['name'].strip() # Trim whitespace
+            name=data['name'].strip()  # Trim whitespace
         )
         db.session.add(new_quiz)
-        # Flush to get the new_quiz.id before creating questions
-        db.session.flush()
+        db.session.flush()  # Flush to get the new_quiz.id before creating questions
 
         for q_data in data.get('questions', []):
-            # Basic validation for question data
             if not q_data or 'type' not in q_data or 'text' not in q_data or not q_data['text'].strip():
                 raise ValueError("Invalid question data: Missing type or text.")
 
@@ -524,7 +532,6 @@ def create_quiz():
             if q_type == 'text_input':
                 question = TextInputQuestion(
                     quiz_id=new_quiz.id,
-                    # quiz=new_quiz, # Relationship backref handles this
                     question_text=q_text,
                     max_length=q_data.get('max_length', 255),
                     correct_answer=q_data.get('correct_answer')
@@ -535,33 +542,26 @@ def create_quiz():
                     question_text=q_text
                 )
                 db.session.add(question)
-                db.session.flush() # Flush to get question.id for options
+                db.session.flush()
 
                 options_data = q_data.get('options', [])
                 if not options_data or not isinstance(options_data, list):
-                     raise ValueError("Multiple choice question requires options.")
+                    raise ValueError("Multiple choice question requires options.")
 
                 correct_options_count = 0
                 for opt_data in options_data:
                     if not opt_data or 'text' not in opt_data or not opt_data['text'].strip():
-                         raise ValueError("Invalid option data: Missing text.")
+                        raise ValueError("Invalid option data: Missing text.")
                     is_correct = opt_data.get('isCorrect', False)
                     if is_correct:
                         correct_options_count += 1
                     option = MultipleChoiceOption(
-                        question_id=question.id, # Use flushed ID
-                        # question=question, # Relationship backref handles this
+                        question_id=question.id,
                         text=opt_data['text'].strip(),
                         is_correct=is_correct
                     )
                     db.session.add(option)
-                # Optional: Validate if at least one correct answer exists for MC questions
-                # if correct_options_count == 0:
-                #     raise ValueError("Multiple choice question must have at least one correct option.")
-
-
             elif q_type == 'slider':
-                 # Validate slider values
                 min_val = q_data.get('min', 0)
                 max_val = q_data.get('max', 10)
                 step_val = q_data.get('step', 1)
@@ -575,14 +575,9 @@ def create_quiz():
                     raise ValueError("Slider step must be positive.")
                 if correct_val is not None:
                     if not isinstance(correct_val, int):
-                         raise ValueError("Slider correct value must be an integer.")
+                        raise ValueError("Slider correct value must be an integer.")
                     if not (min_val <= correct_val <= max_val):
-                         raise ValueError("Slider correct value must be within min/max range.")
-                    # Optional: Check if correct_value is reachable with the step
-                    # if (correct_val - min_val) % step_val != 0:
-                    #    raise ValueError("Slider correct value is not reachable with the given step.")
-
-
+                        raise ValueError("Slider correct value must be within min/max range.")
                 question = SliderQuestion(
                     quiz_id=new_quiz.id,
                     question_text=q_text,
@@ -592,34 +587,26 @@ def create_quiz():
                     correct_value=correct_val
                 )
             else:
-                # Handle unknown question type if necessary, or raise error
-                 raise ValueError(f"Unsupported question type: {q_type}")
+                raise ValueError(f"Unsupported question type: {q_type}")
 
+            if question:
+                db.session.add(question)
 
-            if question: # Only add if a question object was created
-                 db.session.add(question)
-
-        # Final commit after processing all questions
         db.session.commit()
         return jsonify({"message": "Quiz created", "quiz_id": new_quiz.id}), 201
 
-    except ValueError as ve: # Catch specific validation errors
+    except ValueError as ve:
         db.session.rollback()
         return jsonify({"error": str(ve)}), 400
     except Exception as e:
         db.session.rollback()
-        print(f"Error creating quiz: {e}") # Log the error
+        print(f"Error creating quiz: {e}")
         return jsonify({"error": "Could not create quiz due to an internal error."}), 500
 
 
 @main_bp.route('/quizzes/<int:quiz_id>', methods=['GET'])
 def get_quiz(quiz_id):
-    # No auth check needed here if quizzes can be publicly viewed/simulated once created
-    # Add auth check if only owners/participants should see details:
-    # if 'user_id' not in session:
-    #     return jsonify({"error": "Not logged in"}), 401
-
-    quiz = db.session.get(Quiz, quiz_id) # Use newer db.session.get
+    quiz = db.session.get(Quiz, quiz_id)
     if not quiz:
         return jsonify({"error": "Quiz not found"}), 404
 
@@ -630,27 +617,14 @@ def get_quiz(quiz_id):
             "type": question.question_type,
             "text": question.question_text
         }
-
-        # Use hasattr for safer attribute access, especially with polymorphism
         if hasattr(question, 'options'):
-            q_data['options'] = [{
-                "id": opt.id,
-                "text": opt.text,
-                "is_correct": opt.is_correct
-            } for opt in question.options]
+            q_data['options'] = [{"id": opt.id, "text": opt.text, "is_correct": opt.is_correct} for opt in
+                                 question.options]
         elif hasattr(question, 'min_value'):
-            q_data.update({
-                "min": question.min_value,
-                "max": question.max_value,
-                "step": question.step,
-                "correct_value": question.correct_value
-            })
+            q_data.update({"min": question.min_value, "max": question.max_value, "step": question.step,
+                           "correct_value": question.correct_value})
         elif hasattr(question, 'max_length'):
-            q_data.update({
-                "max_length": question.max_length,
-                "correct_answer": question.correct_answer
-            })
-
+            q_data.update({"max_length": question.max_length, "correct_answer": question.correct_answer})
         questions.append(q_data)
 
     creator_username = quiz.user.username if quiz.user else "Unknown User"
@@ -663,7 +637,7 @@ def get_quiz(quiz_id):
         "creator": creator_username,
         "creator_avatar": creator_avatar,
         "questions": questions,
-        "questions_count": len(questions) # Include question count
+        "questions_count": len(questions)
     }), 200
 
 
@@ -675,25 +649,19 @@ def delete_quiz(quiz_id):
     user_id = session['user_id']
     user = User.query.get(user_id)
     if not user:
-        session.clear()
+        session.clear();
         return jsonify({"error": "Invalid session"}), 401
 
     quiz = Quiz.query.filter_by(id=quiz_id, user_id=user_id).first()
-
     if not quiz:
-        # Check if the quiz exists but belongs to another user
         existing_quiz = db.session.get(Quiz, quiz_id)
-        if existing_quiz:
-             return jsonify({"error": "Forbidden: You do not own this quiz"}), 403
-        else:
-             return jsonify({"error": "Quiz not found"}), 404
+        return jsonify({"error": "Forbidden: You do not own this quiz"}), 403 if existing_quiz else jsonify(
+            {"error": "Quiz not found"}), 404
 
     try:
-        # Cascade delete should handle questions and options if configured correctly
         db.session.delete(quiz)
         db.session.commit()
         return jsonify({"message": "Quiz deleted successfully"}), 200
-
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting quiz {quiz_id}: {e}")
@@ -708,32 +676,24 @@ def update_quiz(quiz_id):
     user_id = session['user_id']
     user = User.query.get(user_id)
     if not user:
-        session.clear()
+        session.clear();
         return jsonify({"error": "Invalid session"}), 401
 
     quiz = Quiz.query.filter_by(id=quiz_id, user_id=user_id).first()
-
     if not quiz:
         existing_quiz = db.session.get(Quiz, quiz_id)
-        if existing_quiz:
-             return jsonify({"error": "Forbidden: You do not own this quiz"}), 403
-        else:
-             return jsonify({"error": "Quiz not found"}), 404
+        return jsonify({"error": "Forbidden: You do not own this quiz"}), 403 if existing_quiz else jsonify(
+            {"error": "Quiz not found"}), 404
 
     data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    if 'name' not in data or not data['name'].strip():
-        return jsonify({"error": "Quiz name required"}), 400
-    if 'questions' not in data or not isinstance(data['questions'], list):
-         return jsonify({"error": "Invalid questions format"}), 400
+    if not data: return jsonify({"error": "No data provided"}), 400
+    if 'name' not in data or not data['name'].strip(): return jsonify({"error": "Quiz name required"}), 400
+    if 'questions' not in data or not isinstance(data['questions'], list): return jsonify(
+        {"error": "Invalid questions format"}), 400
 
     try:
         quiz.name = data['name'].strip()
-
-        # --- Efficient Update Strategy ---
         existing_question_ids = {q.id for q in quiz.questions}
-        incoming_questions_map = {} # Use map for quick lookup if needed later
         questions_to_add = []
         updated_question_ids = set()
 
@@ -741,17 +701,14 @@ def update_quiz(quiz_id):
             if not q_data or 'type' not in q_data or 'text' not in q_data or not q_data['text'].strip():
                 raise ValueError("Invalid question data: Missing type or text.")
 
-            q_id = q_data.get('id') # Check for existing question ID
+            q_id = q_data.get('id')
             q_type = q_data['type']
             q_text = q_data['text'].strip()
 
-            # --- Update Existing Question ---
-            if q_id and q_id in existing_question_ids:
+            if q_id and q_id in existing_question_ids:  # Update existing
                 question = db.session.get(Question, q_id)
-                if not question or question.quiz_id != quiz.id:
-                     raise ValueError(f"Invalid question ID {q_id} for this quiz.")
-                if question.question_type != q_type:
-                     raise ValueError(f"Changing question type (from {question.question_type} to {q_type}) is not supported via update. Delete and recreate.")
+                if not question or question.quiz_id != quiz.id: raise ValueError(f"Invalid question ID {q_id}")
+                if question.question_type != q_type: raise ValueError(f"Changing question type not supported.")
 
                 question.question_text = q_text
                 updated_question_ids.add(q_id)
@@ -760,73 +717,100 @@ def update_quiz(quiz_id):
                     question.max_length = q_data.get('max_length', 255)
                     question.correct_answer = q_data.get('correct_answer')
                 elif q_type == 'multiple_choice':
-                    MultipleChoiceOption.query.filter_by(question_id=q_id).delete()
+                    MultipleChoiceOption.query.filter_by(question_id=q_id).delete(
+                        synchronize_session=False)  # clear old options
                     options_data = q_data.get('options', [])
                     if not options_data: raise ValueError("MC Question needs options.")
                     for opt_data in options_data:
-                        if not opt_data or 'text' not in opt_data or not opt_data['text'].strip():
-                             raise ValueError("Invalid option data.")
-                        db.session.add(MultipleChoiceOption(
-                            question_id=q_id,
-                            text=opt_data['text'].strip(),
-                            is_correct=opt_data.get('isCorrect', False)
-                        ))
+                        if not opt_data or 'text' not in opt_data or not opt_data['text'].strip(): raise ValueError(
+                            "Invalid option data.")
+                        db.session.add(MultipleChoiceOption(question_id=q_id, text=opt_data['text'].strip(),
+                                                            is_correct=opt_data.get('isCorrect', False)))
                 elif q_type == 'slider':
-                    min_val = q_data.get('min', 0)
-                    max_val = q_data.get('max', 10)
+                    min_val, max_val = q_data.get('min', 0), q_data.get('max', 10)
                     if min_val >= max_val: raise ValueError("Slider min >= max")
-                    question.min_value = min_val
-                    question.max_value = max_val
+                    question.min_value, question.max_value = min_val, max_val
                     question.step = q_data.get('step', 1)
                     question.correct_value = q_data.get('correct_value')
-
-            # --- Add New Question ---
-            else:
+            else:  # Add new question
                 new_question = None
                 if q_type == 'text_input':
-                    new_question = TextInputQuestion(quiz_id=quiz.id, question_text=q_text, max_length=q_data.get('max_length', 255), correct_answer=q_data.get('correct_answer'))
+                    new_question = TextInputQuestion(quiz_id=quiz.id, question_text=q_text,
+                                                     max_length=q_data.get('max_length', 255),
+                                                     correct_answer=q_data.get('correct_answer'))
                 elif q_type == 'multiple_choice':
                     new_question = MultipleChoiceQuestion(quiz_id=quiz.id, question_text=q_text)
-                    db.session.add(new_question)
-                    db.session.flush() # Need ID for options
+                    db.session.add(new_question);
+                    db.session.flush()  # Need ID for options
                     options_data = q_data.get('options', [])
                     if not options_data: raise ValueError("MC Question needs options.")
                     for opt_data in options_data:
-                         if not opt_data or 'text' not in opt_data or not opt_data['text'].strip():
-                             raise ValueError("Invalid option data.")
-                         db.session.add(MultipleChoiceOption(question_id=new_question.id, text=opt_data['text'].strip(), is_correct=opt_data.get('isCorrect', False)))
+                        if not opt_data or 'text' not in opt_data or not opt_data['text'].strip(): raise ValueError(
+                            "Invalid option data.")
+                        db.session.add(MultipleChoiceOption(question_id=new_question.id, text=opt_data['text'].strip(),
+                                                            is_correct=opt_data.get('isCorrect', False)))
                 elif q_type == 'slider':
-                    min_val = q_data.get('min', 0)
-                    max_val = q_data.get('max', 10)
+                    min_val, max_val = q_data.get('min', 0), q_data.get('max', 10)
                     if min_val >= max_val: raise ValueError("Slider min >= max")
-                    new_question = SliderQuestion(quiz_id=quiz.id, question_text=q_text, min_value=min_val, max_value=max_val, step=q_data.get('step', 1), correct_value=q_data.get('correct_value'))
+                    new_question = SliderQuestion(quiz_id=quiz.id, question_text=q_text, min_value=min_val,
+                                                  max_value=max_val, step=q_data.get('step', 1),
+                                                  correct_value=q_data.get('correct_value'))
                 else:
                     raise ValueError(f"Unsupported question type: {q_type}")
 
-                if new_question:
-                    questions_to_add.append(new_question)
+                if new_question: questions_to_add.append(new_question)
 
-        # --- Delete questions that were not in the incoming data ---
+        # --- CORRECTED Deletion Logic ---
         question_ids_to_delete = existing_question_ids - updated_question_ids
         if question_ids_to_delete:
-            mc_questions_to_delete = db.session.query(MultipleChoiceQuestion.id).filter(MultipleChoiceQuestion.id.in_(question_ids_to_delete)).all()
-            if mc_questions_to_delete:
-                mc_ids = [q_id for q_id, in mc_questions_to_delete]
-                MultipleChoiceOption.query.filter(MultipleChoiceOption.question_id.in_(mc_ids)).delete(synchronize_session=False)
-            Question.query.filter(Question.id.in_(question_ids_to_delete)).delete(synchronize_session=False)
+            print(f"Attempting to delete question IDs: {question_ids_to_delete}")
+
+            # 1. Delete dependent Multiple Choice Options first
+            mc_questions_to_delete_ids = db.session.query(MultipleChoiceQuestion.id) \
+                .filter(MultipleChoiceQuestion.id.in_(question_ids_to_delete)).all()
+            if mc_questions_to_delete_ids:
+                actual_mc_ids = [q_id for q_id, in mc_questions_to_delete_ids]
+                if actual_mc_ids:
+                    print(f"Deleting options for MC question IDs: {actual_mc_ids}")
+                    MultipleChoiceOption.query.filter(MultipleChoiceOption.question_id.in_(actual_mc_ids)).delete(
+                        synchronize_session='fetch')
+
+            # 2. Delete from the specific subtype tables FIRST
+            print(f"Deleting from text_input_questions for IDs: {question_ids_to_delete}")
+            TextInputQuestion.query.filter(TextInputQuestion.id.in_(question_ids_to_delete)).delete(
+                synchronize_session='fetch')
+
+            print(f"Deleting from multiple_choice_questions for IDs: {question_ids_to_delete}")
+            MultipleChoiceQuestion.query.filter(MultipleChoiceQuestion.id.in_(question_ids_to_delete)).delete(
+                synchronize_session='fetch')
+
+            print(f"Deleting from slider_questions for IDs: {question_ids_to_delete}")
+            SliderQuestion.query.filter(SliderQuestion.id.in_(question_ids_to_delete)).delete(
+                synchronize_session='fetch')
+
+            # 3. NOW it's safe to delete from the base Question table
+            print(f"Deleting from base questions table for IDs: {question_ids_to_delete}")
+            Question.query.filter(Question.id.in_(question_ids_to_delete)).delete(synchronize_session='fetch')
+            print("Deletion queries executed.")
 
         if questions_to_add:
+            print(f"Adding {len(questions_to_add)} new questions.")
             db.session.add_all(questions_to_add)
 
+        print("Committing transaction.")
         db.session.commit()
+        print("Transaction committed.")
         return jsonify({"message": "Quiz updated", "quiz_id": quiz.id}), 200
 
     except ValueError as ve:
         db.session.rollback()
+        print(f"ValueError during quiz update {quiz_id}: {ve}")
         return jsonify({"error": str(ve)}), 400
     except Exception as e:
         db.session.rollback()
-        print(f"Error updating quiz {quiz_id}: {e}")
+        import traceback
+        print(f"Error updating quiz {quiz_id}: {type(e).__name__} - {e}")
+        traceback.print_exc()
         return jsonify({"error": "Could not update quiz due to an internal error."}), 500
 
 
@@ -898,9 +882,9 @@ def handle_profile():
             if banner_type == 'image':
                 # Banner images identified by a string key (e.g., "1", "2", ..., "5", "default")
                 # These keys correspond to image files like banner1.jpg, banner_default.jpg
-                valid_banner_identifiers = ['1', '2', '3', '4', '5', 'default'] # Define your valid identifiers
+                valid_banner_identifiers = ['1', '2', '3', '4', '5', 'default']  # Define your valid identifiers
                 if not isinstance(banner_value, str) or banner_value not in valid_banner_identifiers:
-                     return jsonify({"error": f"Invalid banner image identifier. Choose from predefined options."}), 400
+                    return jsonify({"error": f"Invalid banner image identifier. Choose from predefined options."}), 400
 
             elif banner_type == 'color':
                 if not isinstance(banner_value, str) or not re.match(r"^#(?:[0-9a-fA-F]{3}){1,2}$", banner_value):
@@ -919,6 +903,9 @@ def handle_profile():
 
         try:
             db.session.commit()
+            # After commit, fetch the user again to ensure the returned data is fresh,
+            # especially if 'updated_at' or other server-side defaults are modified.
+            # However, for this specific case, returning the already modified user object is fine.
             return jsonify({
                 "message": "Profile updated",
                 "user": {
@@ -950,7 +937,7 @@ def change_password():
     data = request.get_json()
     current_password = data.get('currentPassword')
     new_password = data.get('newPassword')
-    confirm_password = data.get('confirmPassword') # Add confirmation check
+    confirm_password = data.get('confirmPassword')  # Add confirmation check
 
     if not current_password or not new_password or not confirm_password:
         return jsonify({"error": "All password fields required"}), 400
@@ -970,13 +957,14 @@ def change_password():
         print(f"Error changing password for user {user.id}: {e}")
         return jsonify({"error": "Could not change password due to an internal error."}), 500
 
+
 @main_bp.route('/delete-account', methods=['DELETE'])
 def delete_account():
     if 'user_id' not in session:
         return jsonify({"error": "Not logged in"}), 401
 
-    user_id = session['user_id'] # Get user_id from session
-    user = db.session.get(User, user_id) # Fetch user using the ID
+    user_id = session['user_id']  # Get user_id from session
+    user = db.session.get(User, user_id)  # Fetch user using the ID
     if not user:
         session.clear()
         return jsonify({"error": "User not found or session invalid"}), 401
@@ -995,10 +983,12 @@ def delete_account():
         hosted_session_ids_query = QuizSession.query.filter_by(host_id=user.id).with_entities(QuizSession.id)
         hosted_session_ids = [id_tuple[0] for id_tuple in hosted_session_ids_query.all()]
         if hosted_session_ids:
-            SessionParticipant.query.filter(SessionParticipant.session_id.in_(hosted_session_ids)).delete(synchronize_session=False)
+            SessionParticipant.query.filter(SessionParticipant.session_id.in_(hosted_session_ids)).delete(
+                synchronize_session=False)
             QuizSession.query.filter(QuizSession.id.in_(hosted_session_ids)).delete(synchronize_session=False)
         SessionParticipant.query.filter_by(user_id=user.id).delete(synchronize_session=False)
-        db.session.execute(followers.delete().where((followers.c.follower_id == user.id) | (followers.c.followed_id == user.id)))
+        db.session.execute(
+            followers.delete().where((followers.c.follower_id == user.id) | (followers.c.followed_id == user.id)))
 
         user_quiz_ids_query = Quiz.query.filter_by(user_id=user.id).with_entities(Quiz.id)
         user_quiz_ids = [id_tuple[0] for id_tuple in user_quiz_ids_query.all()]
@@ -1006,12 +996,15 @@ def delete_account():
             question_ids_query = Question.query.filter(Question.quiz_id.in_(user_quiz_ids)).with_entities(Question.id)
             question_ids = [id_tuple[0] for id_tuple in question_ids_query.all()]
             if question_ids:
-                mc_question_ids_query = MultipleChoiceQuestion.query.filter(MultipleChoiceQuestion.id.in_(question_ids)).with_entities(MultipleChoiceQuestion.id)
+                mc_question_ids_query = MultipleChoiceQuestion.query.filter(
+                    MultipleChoiceQuestion.id.in_(question_ids)).with_entities(MultipleChoiceQuestion.id)
                 mc_question_ids = [id_tuple[0] for id_tuple in mc_question_ids_query.all()]
                 if mc_question_ids:
-                    MultipleChoiceOption.query.filter(MultipleChoiceOption.question_id.in_(mc_question_ids)).delete(synchronize_session=False)
+                    MultipleChoiceOption.query.filter(MultipleChoiceOption.question_id.in_(mc_question_ids)).delete(
+                        synchronize_session=False)
                 TextInputQuestion.query.filter(TextInputQuestion.id.in_(question_ids)).delete(synchronize_session=False)
-                MultipleChoiceQuestion.query.filter(MultipleChoiceQuestion.id.in_(question_ids)).delete(synchronize_session=False)
+                MultipleChoiceQuestion.query.filter(MultipleChoiceQuestion.id.in_(question_ids)).delete(
+                    synchronize_session=False)
                 SliderQuestion.query.filter(SliderQuestion.id.in_(question_ids)).delete(synchronize_session=False)
                 Question.query.filter(Question.id.in_(question_ids)).delete(synchronize_session=False)
             Quiz.query.filter(Quiz.id.in_(user_quiz_ids)).delete(synchronize_session=False)
@@ -1028,10 +1021,10 @@ def delete_account():
         traceback.print_exc()
         return jsonify({"error": "Could not delete account due to an internal error. Please check server logs."}), 500
 
+
 # ------------------------------
 # SESSION MANAGEMENT ROUTES
 # ------------------------------
-# ... (Houd bestaande sessie routes ongewijzigd: /sessions POST, /sessions/<code>/join POST, /sessions/<code>/start POST, /sessions/<code> GET, /sessions/<code>/participants GET, /sessions/<code>/submit-score POST) ...
 @main_bp.route('/sessions', methods=['POST'])
 def create_session():
     """Creates a new quiz session."""
@@ -1053,14 +1046,14 @@ def create_session():
 
     quiz = db.session.get(Quiz, quiz_id)
     if not quiz:
-         return jsonify({'error': 'Quiz not found'}), 404
-    if len(quiz.questions) == 0: # Check if quiz has questions
+        return jsonify({'error': 'Quiz not found'}), 404
+    if len(quiz.questions) == 0:  # Check if quiz has questions
         return jsonify({'error': 'Cannot host a quiz with no questions'}), 400
 
     try:
         num_teams = int(num_teams_req)
         if num_teams < 1:
-             raise ValueError()
+            raise ValueError()
     except (ValueError, TypeError):
         num_teams = 1
 
@@ -1116,7 +1109,7 @@ def join_session(code):
             if not (1 <= team_number <= quiz_session.num_teams):
                 return jsonify({'error': f'Invalid team number. Choose between 1 and {quiz_session.num_teams}.'}), 400
         except (ValueError, TypeError):
-             return jsonify({'error': 'Team number is required for this session'}), 400
+            return jsonify({'error': 'Team number is required for this session'}), 400
 
     participant = SessionParticipant.query.filter_by(
         session_id=quiz_session.id,
@@ -1128,9 +1121,13 @@ def join_session(code):
             if participant.team_number != team_number:
                 participant.team_number = team_number
                 db.session.commit()
-                return jsonify({'message': f'Switched to Team {team_number}' if team_number else 'Switched to individual participation', 'action': 'switched_team'}), 200
+                return jsonify({
+                                   'message': f'Switched to Team {team_number}' if team_number else 'Switched to individual participation',
+                                   'action': 'switched_team'}), 200
             else:
-                return jsonify({'message': 'Already in this team' if team_number else 'Already participating individually', 'action': 'no_change'}), 200
+                return jsonify(
+                    {'message': 'Already in this team' if team_number else 'Already participating individually',
+                     'action': 'no_change'}), 200
         else:
             new_participant = SessionParticipant(
                 session_id=quiz_session.id,
@@ -1139,7 +1136,8 @@ def join_session(code):
             )
             db.session.add(new_participant)
             db.session.commit()
-            return jsonify({'message': f'Joined Team {team_number}' if team_number else 'Joined session', 'action': 'joined'}), 200
+            return jsonify(
+                {'message': f'Joined Team {team_number}' if team_number else 'Joined session', 'action': 'joined'}), 200
 
     except IntegrityError:
         db.session.rollback()
@@ -1210,16 +1208,16 @@ def get_participants(code):
 
     participants_data = []
     for p in quiz_session.participants:
-         if p.user:
-             participants_data.append({
-                 'user_id': p.user.id,
-                 'username': p.user.username,
-                 'avatar': p.user.avatar,
-                 'team_number': p.team_number,
-                 'score': p.score
-             })
-         else:
-             print(f"Warning: Participant record {p.id} in session {code} has no associated user.")
+        if p.user:
+            participants_data.append({
+                'user_id': p.user.id,
+                'username': p.user.username,
+                'avatar': p.user.avatar,
+                'team_number': p.team_number,
+                'score': p.score
+            })
+        else:
+            print(f"Warning: Participant record {p.id} in session {code} has no associated user.")
 
     return jsonify(participants_data), 200
 
@@ -1241,7 +1239,6 @@ def submit_score(code):
         score = float(score_req)
     except (ValueError, TypeError):
         return jsonify({'error': 'Invalid score format'}), 400
-
 
     quiz_session = QuizSession.query.filter_by(code=code).first()
     if not quiz_session:
@@ -1265,7 +1262,7 @@ def submit_score(code):
         print(f"Error submitting score for user {user_id}, session {code}: {e}")
         return jsonify({'error': 'Could not submit score'}), 500
 
-# --- NIEUW ENDPOINT ---
+
 @main_bp.route('/sessions/<string:code>/results', methods=['GET'])
 def get_session_results(code):
     """Gets the final results/scores for a session."""
@@ -1273,33 +1270,29 @@ def get_session_results(code):
     if not quiz_session:
         return jsonify({'error': 'Session not found'}), 404
 
-    # Haal deelnemers op, gesorteerd op score (hoogste eerst)
     participants = SessionParticipant.query.filter_by(
         session_id=quiz_session.id
     ).order_by(SessionParticipant.score.desc()).all()
 
     results = []
     for p in participants:
-        if p.user: # Controleer of de gebruiker bestaat
+        if p.user:
             results.append({
                 'user_id': p.user.id,
                 'username': p.user.username,
                 'avatar': p.user.avatar,
                 'score': p.score,
-                'team_number': p.team_number # Voeg teamnummer toe
+                'team_number': p.team_number
             })
-
-    # Stuur alleen de lijst met individuele resultaten terug
     return jsonify(results), 200
-# --- EINDE NIEUW ENDPOINT ---
 
-# --- Simulatie Route (bestaande, geen wijziging nodig hier) ---
+
 @main_bp.route('/simulate/<int:quiz_id>', methods=['GET'])
 def simulate_session(quiz_id):
     if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401 # Add auth if needed
+        return jsonify({'error': 'Not logged in'}), 401
 
-    quiz = db.session.get(Quiz, quiz_id) # Use the integer quiz_id directly
+    quiz = db.session.get(Quiz, quiz_id)
     if not quiz:
         return jsonify({'error': 'Quiz not found'}), 404
 
@@ -1314,7 +1307,7 @@ def simulate_session(quiz_id):
             q_data['options'] = [{'id': opt.id, 'text': opt.text} for opt in question.options]
             correct_option = next((opt for opt in question.options if opt.is_correct), None)
             q_data['correct_option_id'] = correct_option.id if correct_option else None
-            q_data['correct_answer_text'] = correct_option.text if correct_option else None # Voeg juiste antwoordtekst toe
+            q_data['correct_answer_text'] = correct_option.text if correct_option else None
         elif hasattr(question, 'min_value'):
             q_data.update({
                 'min': question.min_value, 'max': question.max_value,
@@ -1332,7 +1325,7 @@ def simulate_session(quiz_id):
         'questions': questions_data
     }), 200
 
-# --- App Creation Functie (ongewijzigd) ---
+
 def create_app():
     from .init_flask import create_app as flask_create_app
     app = flask_create_app()
