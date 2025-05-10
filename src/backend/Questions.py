@@ -30,7 +30,10 @@ class TextInputQuestion(Question):
 class MultipleChoiceQuestion(Question):
     __tablename__ = 'multiple_choice_questions'
     id = db.Column(db.Integer, db.ForeignKey('questions.id'), primary_key=True)
-    options = db.relationship('MultipleChoiceOption', backref='question', lazy=True)
+    options = db.relationship('MultipleChoiceOption',
+                              backref='question',
+                              lazy=True,
+                              cascade='all, delete-orphan')
 
     __mapper_args__ = {'polymorphic_identity': 'multiple_choice'}
 
