@@ -882,7 +882,7 @@ def handle_profile():
             if banner_type == 'image':
                 # Banner images identified by a string key (e.g., "1", "2", ..., "5", "default")
                 # These keys correspond to image files like banner1.jpg, banner_default.jpg
-                valid_banner_identifiers = ['1', '2', '3', '4', '5', 'default']  # Define your valid identifiers
+                valid_banner_identifiers = ['1', '2', '3', '4', '5', '6','default']  # Define your valid identifiers
                 if not isinstance(banner_value, str) or banner_value not in valid_banner_identifiers:
                     return jsonify({"error": f"Invalid banner image identifier. Choose from predefined options."}), 400
 
