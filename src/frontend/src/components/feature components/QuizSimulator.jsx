@@ -171,9 +171,11 @@ function QuizSimulator({ quizId: quizIdProp, sessionCode: sessionCodeProp }) {
   return (
     <div className="container quiz-container mt-4">
        <div className="mb-4">
-        <button className="btn btn-outline-secondary me-2" onClick={() => navigate(sessionCode ? `/session/${sessionCode}` : '/my-quizzes')}>
-          ← Back to {sessionCode ? "Lobby" : "My Quizzes"}
-        </button>
+        {!sessionCode && (
+          <button className="btn btn-outline-secondary me-2" onClick={() => navigate('/my-quizzes')}>
+            ← Back to My Quizzes
+          </button>
+        )}
         <Link to="/home" className="btn btn-outline-secondary">← Back to Home</Link>
       </div>
 
