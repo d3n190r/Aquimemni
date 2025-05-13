@@ -4,4 +4,8 @@ flask_session
 src/flask_session
 .idea
 .vscode
-src/frontend/node_modules/.cache
+
+# Node.js cache
+node_modules/
+.cache/
+*.pack
