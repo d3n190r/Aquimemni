@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// src/frontend/src/components/feature components/Settings.jsx
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 function Settings() {
@@ -20,7 +21,36 @@ function Settings() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showDeletePassword, setShowDeletePassword] = useState(false);
 
+  // Notification Settings State
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+  const [notificationSettingError, setNotificationSettingError] = useState('');
+  const [notificationSettingSuccess, setNotificationSettingSuccess] = useState('');
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchProfileSettings = async () => {
+      setIsLoadingSettings(true);
+      setNotificationSettingError('');
+      try {
+        const res = await fetch('/api/profile', { credentials: 'include' });
+        if (!res.ok) {
+          if (res.status === 401) navigate('/login');
+          throw new Error('Failed to load profile settings');
+        }
+        const data = await res.json();
+        setNotificationsEnabled(data.notifications_enabled !== undefined ? data.notifications_enabled : true);
+      } catch (err) {
+        console.error("Error fetching profile settings:", err);
+        setNotificationSettingError(err.message || 'Could not load notification settings.');
+        setTimeout(() => setNotificationSettingError(''), 3000); // Clear error after 3 seconds
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+    fetchProfileSettings();
+  }, [navigate]);
 
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
@@ -29,6 +59,7 @@ function Settings() {
 
     if (newPassword !== confirmPassword) {
       setPasswordError('New passwords do not match.');
+      setTimeout(() => setPasswordError(''), 3000); // Clear error after 3 seconds
       return;
     }
 
@@ -50,11 +81,14 @@ function Settings() {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
+        setTimeout(() => setPasswordSuccess(''), 3000);
       } else {
         setPasswordError(data.error || 'Failed to change password.');
+        setTimeout(() => setPasswordError(''), 3000); // Clear error after 3 seconds
       }
     } catch (err) {
       setPasswordError('Network error. Please try again.');
+      setTimeout(() => setPasswordError(''), 3000); // Clear error after 3 seconds
     }
   };
 
@@ -64,6 +98,7 @@ function Settings() {
 
     if (!deletePassword) {
       setDeleteError('Please enter your password to delete your account.');
+      // Note: deleteError in modal is usually cleared by re-opening or successful action
       return;
     }
 
@@ -92,6 +127,36 @@ function Settings() {
       setIsDeleting(false);
     }
   };
+
+  const handleNotificationToggle = async () => {
+    const newNotificationsEnabled = !notificationsEnabled;
+    setNotificationsEnabled(newNotificationsEnabled); 
+    setNotificationSettingError('');
+    setNotificationSettingSuccess('');
+
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifications_enabled: newNotificationsEnabled }),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNotificationSettingSuccess(`Notifications ${newNotificationsEnabled ? 'enabled' : 'disabled'} successfully.`);
+        setTimeout(() => setNotificationSettingSuccess(''), 3000);
+      } else {
+        setNotificationsEnabled(!newNotificationsEnabled); 
+        setNotificationSettingError(data.error || `Failed to ${newNotificationsEnabled ? 'enable' : 'disable'} notifications.`);
+        setTimeout(() => setNotificationSettingError(''), 3000); // Clear error after 3 seconds
+      }
+    } catch (err) {
+      setNotificationsEnabled(!newNotificationsEnabled); 
+      setNotificationSettingError('Network error updating notification settings.');
+      setTimeout(() => setNotificationSettingError(''), 3000); // Clear error after 3 seconds
+    }
+  };
+
 
   return (
     <div className="container mt-4">
@@ -183,25 +248,51 @@ function Settings() {
         </div>
       </div>
 
-      {/* Notifications Placeholder */}
+      {/* Notifications Settings */}
       <div className="card mb-4">
         <div className="card-body">
-          <h3 className="card-title">Notifications</h3>
-          <div className="form-check form-switch">
-            <input className="form-check-input" type="checkbox" id="notificationsSwitch" disabled />
-            <label className="form-check-label" htmlFor="notificationsSwitch">
-              Enable Notifications (Coming Soon!)
-            </label>
-          </div>
+          <h3 className="card-title">Notification Preferences</h3>
+          {notificationSettingError && <div className="alert alert-danger mt-2 py-2">{notificationSettingError}</div>}
+          {notificationSettingSuccess && <div className="alert alert-success mt-2 py-2">{notificationSettingSuccess}</div>}
+          {isLoadingSettings ? (
+            <div className="text-center my-3">
+              <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <span className="text-muted">Loading notification settings...</span>
+            </div>
+          ) : (
+            <div className="form-check form-switch mt-3">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="notificationsSwitch"
+                checked={notificationsEnabled}
+                onChange={handleNotificationToggle}
+                disabled={isLoadingSettings || isDeleting}
+              />
+              <label className="form-check-label" htmlFor="notificationsSwitch">
+                Enable Notifications
+              </label>
+              <p className="form-text text-muted mt-2 small">
+                {notificationsEnabled
+                  ? "You are currently receiving notifications for new followers and session invites."
+                  : "Notifications are currently off. You won't receive updates for new followers or session invites."
+                }
+              </p>
+            </div>
+          )}
         </div>
       </div>
+
 
       {/* Delete Account */}
       <div className="card border-danger">
         <div className="card-body">
           <h3 className="card-title text-danger">Delete Account</h3>
           <p className="text-muted">
-            Deleting your account will permanently remove all your data. This cannot be undone.
+            Deleting your account will permanently remove all your data. This action cannot be undone.
           </p>
           {deleteSuccess && <div className="alert alert-success">{deleteSuccess}</div>}
           <button
@@ -212,7 +303,7 @@ function Settings() {
             Delete Account
           </button>
 
-          {/* Modal */}
+          {/* Modal for Delete Account */}
           {showDeleteModal && (
             <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
               <div className="modal-dialog">
@@ -222,7 +313,10 @@ function Settings() {
                     <button
                       type="button"
                       className="btn-close"
-                      onClick={() => setShowDeleteModal(false)}
+                      onClick={() => {
+                        setShowDeleteModal(false);
+                        setDeleteError(''); // Clear modal-specific error on close
+                      }}
                     ></button>
                   </div>
                   <div className="modal-body">
@@ -251,7 +345,10 @@ function Settings() {
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      onClick={() => setShowDeleteModal(false)}
+                      onClick={() => {
+                        setShowDeleteModal(false);
+                        setDeleteError(''); // Clear modal-specific error on cancel
+                      }}
                       disabled={isDeleting}
                     >
                       Cancel
@@ -260,7 +357,7 @@ function Settings() {
                       type="button"
                       className="btn btn-danger"
                       onClick={handleDeleteAccount}
-                      disabled={isDeleting}
+                      disabled={isDeleting || !deletePassword.trim()}
                     >
                       {isDeleting ? 'Deleting...' : 'Delete Permanently'}
                     </button>

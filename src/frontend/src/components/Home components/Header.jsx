@@ -6,15 +6,15 @@ const Header = ({ onLogout }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [userData, setUserData] = useState({ username: 'Loading...', avatar: 1 });
+  const [userData, setUserData] = useState({ username: 'Loading...', avatar: 1, notificationsEnabled: true }); // Default to true
 
   const [notificationCount, setNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const notificationPollIntervalRef = useRef(null);
-  const notificationDropdownRef = useRef(null); 
-  const isMountedRef = useRef(true); 
+  const notificationDropdownRef = useRef(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -24,16 +24,30 @@ const Header = ({ onLogout }) => {
         return res.ok ? res.json() : Promise.reject('Not logged in');
       })
       .then(data => {
-        if (isMountedRef.current) setUserData({ username: data.username, avatar: data.avatar || 1 });
+        if (isMountedRef.current) {
+            setUserData({
+                username: data.username,
+                avatar: data.avatar || 1,
+                notificationsEnabled: data.notifications_enabled !== undefined ? data.notifications_enabled : true
+            });
+        }
       })
       .catch((err) => {
          if (isMountedRef.current && err !== 'Component unmounted') console.error("Profile fetch error:", err);
+         // If profile fetch fails, assume default notifications enabled (true) or handle as needed
       });
-    return () => { isMountedRef.current = false; }; 
+    return () => { isMountedRef.current = false; };
   }, []);
 
   const fetchNotificationCount = useCallback(async () => {
-    if (!isMountedRef.current || userData.username === 'Loading...') return;
+    if (!isMountedRef.current || userData.username === 'Loading...' || !userData.notificationsEnabled) {
+      if (notificationPollIntervalRef.current) {
+        clearInterval(notificationPollIntervalRef.current);
+        notificationPollIntervalRef.current = null;
+      }
+      if (isMountedRef.current && !userData.notificationsEnabled) setNotificationCount(0); // Clear count if disabled
+      return;
+    }
     try {
       const res = await fetch('/api/notifications/count', { credentials: 'include' });
       if (!isMountedRef.current) return;
@@ -52,24 +66,30 @@ const Header = ({ onLogout }) => {
     } catch (err) {
       if (isMountedRef.current) console.error("Network error fetching notification count:", err);
     }
-  }, [userData.username]); 
+  }, [userData.username, userData.notificationsEnabled]);
 
   useEffect(() => {
-    if (userData.username !== 'Loading...' && isMountedRef.current) {
-      fetchNotificationCount(); 
-      if (notificationPollIntervalRef.current) clearInterval(notificationPollIntervalRef.current); 
-      notificationPollIntervalRef.current = setInterval(fetchNotificationCount, 30000); 
+    if (userData.username !== 'Loading...' && userData.notificationsEnabled && isMountedRef.current) {
+      fetchNotificationCount();
+      if (notificationPollIntervalRef.current) clearInterval(notificationPollIntervalRef.current);
+      notificationPollIntervalRef.current = setInterval(fetchNotificationCount, 30000);
+    } else if (!userData.notificationsEnabled && notificationPollIntervalRef.current) {
+        clearInterval(notificationPollIntervalRef.current);
+        notificationPollIntervalRef.current = null;
     }
-    return () => { 
+    return () => {
       if (notificationPollIntervalRef.current) {
         clearInterval(notificationPollIntervalRef.current);
         notificationPollIntervalRef.current = null;
       }
     };
-  }, [fetchNotificationCount, userData.username]); 
+  }, [fetchNotificationCount, userData.username, userData.notificationsEnabled]);
 
   const fetchNotifications = async () => {
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current || !userData.notificationsEnabled) {
+        if (isMountedRef.current) setNotifications([]);
+        return;
+    }
     setIsLoadingNotifications(true);
     try {
       const res = await fetch('/api/notifications?limit=10', { credentials: 'include' });
@@ -90,9 +110,9 @@ const Header = ({ onLogout }) => {
   };
 
   const markAllNotificationsAsReadOnBackend = async () => {
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current || !userData.notificationsEnabled) return;
     try {
-      const res = await fetch('/api/notifications/mark-all-read', { 
+      const res = await fetch('/api/notifications/mark-all-read', {
         method: 'POST',
         credentials: 'include',
       });
@@ -106,27 +126,30 @@ const Header = ({ onLogout }) => {
   };
 
   const toggleNotificationDropdown = async () => {
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current || !userData.notificationsEnabled) {
+        if (isMountedRef.current) setIsNotificationDropdownOpen(false);
+        return;
+    }
     const willOpen = !isNotificationDropdownOpen;
     setIsNotificationDropdownOpen(willOpen);
-    
+
     if (willOpen) {
-      fetchNotifications(); 
-      if (notificationCount > 0) { 
-        setNotificationCount(0); 
-        await markAllNotificationsAsReadOnBackend(); 
+      fetchNotifications();
+      if (notificationCount > 0) {
+        setNotificationCount(0);
+        await markAllNotificationsAsReadOnBackend();
       }
     }
   };
 
   const markNotificationAsRead = async (notificationId, e) => {
-    if (e) e.stopPropagation(); 
-    if (!isMountedRef.current) return;
-    
+    if (e) e.stopPropagation();
+    if (!isMountedRef.current || !userData.notificationsEnabled) return;
+
     const notificationWasUnread = notifications.find(n => n.id === notificationId && !n.is_read);
     setNotifications(prev => prev.map(n => n.id === notificationId ? {...n, is_read: true} : n));
-    
-    if (notificationWasUnread) { 
+
+    if (notificationWasUnread) {
         setNotificationCount(prev => Math.max(0, prev -1));
     }
 
@@ -137,26 +160,26 @@ const Header = ({ onLogout }) => {
       });
       if (!isMountedRef.current) return;
       if (res.ok) {
-         await fetchNotificationCount(); 
+         await fetchNotificationCount();
       } else {
         console.error("Failed to mark notification as read on backend:", res.status);
-        await fetchNotificationCount(); 
+        await fetchNotificationCount();
       }
     } catch (err) {
       if (isMountedRef.current) console.error("Network error marking notification as read:", err);
-      await fetchNotificationCount(); 
+      await fetchNotificationCount();
     }
   };
 
   const handleNotificationJoin = async (sessionCode, notificationId, e) => {
       if (e) e.stopPropagation();
-      if (!isMountedRef.current) return;
-      
-      await markNotificationAsRead(notificationId, e); 
-      
+      if (!isMountedRef.current || !userData.notificationsEnabled) return;
+
+      await markNotificationAsRead(notificationId, e);
+
       if (isMountedRef.current) {
-        setIsNotificationDropdownOpen(false); 
-        navigate(`/session/${sessionCode}`); 
+        setIsNotificationDropdownOpen(false);
+        navigate(`/session/${sessionCode}`);
       }
   };
 
@@ -170,7 +193,7 @@ const Header = ({ onLogout }) => {
       return () => {
           document.removeEventListener('mousedown', handleClickOutside);
       };
-  }, []); 
+  }, []);
 
   const handleLogout = async () => {
     if (notificationPollIntervalRef.current) {
@@ -183,11 +206,11 @@ const Header = ({ onLogout }) => {
         console.error("Logout API call failed:", err);
     } finally {
         if (isMountedRef.current) {
-            setUserData({ username: 'Loading...', avatar: 1 }); 
-            setNotificationCount(0); 
-            setNotifications([]); 
-            if (onLogout) onLogout(); 
-            navigate('/login'); 
+            setUserData({ username: 'Loading...', avatar: 1, notificationsEnabled: true });
+            setNotificationCount(0);
+            setNotifications([]);
+            if (onLogout) onLogout();
+            navigate('/login');
         }
     }
   };
@@ -220,8 +243,8 @@ const Header = ({ onLogout }) => {
   const goToQuiz = id => {
     if (isMountedRef.current) {
         navigate(`/quiz/${id}`);
-        setSearchResults([]); 
-        setSearchQuery(''); 
+        setSearchResults([]);
+        setSearchQuery('');
     }
   };
 
@@ -277,18 +300,20 @@ const Header = ({ onLogout }) => {
                   className="btn btn-light position-relative"
                   type="button"
                   onClick={toggleNotificationDropdown}
-                  aria-label={`Notifications (${notificationCount} unread)`}
+                  aria-label={`Notifications (${userData.notificationsEnabled ? notificationCount : 'Disabled'})`}
                   aria-expanded={isNotificationDropdownOpen}
+                  disabled={!userData.notificationsEnabled && userData.username !== 'Loading...'}
+                  title={!userData.notificationsEnabled ? "Notifications are disabled in Settings" : (notificationCount > 0 ? `${notificationCount} unread notifications` : "No new notifications")}
                 >
-                    <i className="bi bi-bell fs-5"></i>
-                    {notificationCount > 0 && (
+                    <i className={`bi ${userData.notificationsEnabled ? 'bi-bell' : 'bi-bell-slash'} fs-5`}></i>
+                    {userData.notificationsEnabled && notificationCount > 0 && (
                         <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.7em', padding: '0.3em 0.5em' }}>
                             {notificationCount > 9 ? '9+' : notificationCount}
                             <span className="visually-hidden">unread notifications</span>
                         </span>
                     )}
                 </button>
-                {isNotificationDropdownOpen && (
+                {isNotificationDropdownOpen && userData.notificationsEnabled && (
                      <div className="dropdown-menu dropdown-menu-end shadow border-1 p-2 show" style={{ width: '380px', maxHeight: '450px', overflowY: 'auto', position: 'absolute', right: 0, left: 'auto' }}>
                          <h6 className="dropdown-header px-3 pt-2 pb-1 d-flex justify-content-between align-items-center">
                              <span>Notifications</span>
@@ -359,11 +384,20 @@ const Header = ({ onLogout }) => {
                 className="rounded-circle"
                 style={{ width: '40px', height: '40px', marginRight: '.5rem', border: '1px solid #ccc' }}
               />
-              <span className="d-none d-md-inline text-dark fw-medium">{userData.username}</span>
+              {/* Added text-primary class to the username span */}
+              <span className="d-none d-md-inline text-primary fw-medium">{userData.username}</span>
             </button>
             <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-              <li><button className="dropdown-item" onClick={() => navigate('/profile')}>Profile</button></li>
-              <li><button className="dropdown-item" onClick={() => navigate('/settings')}>Settings</button></li>
+              <li>
+                <button className="dropdown-item d-flex justify-content-between align-items-center" onClick={() => navigate('/profile')}>
+                  Profile <i className="bi bi-person-circle"></i>
+                </button>
+              </li>
+              <li>
+                <button className="dropdown-item d-flex justify-content-between align-items-center" onClick={() => navigate('/settings')}>
+                   Settings <i className="bi bi-gear-fill"></i>
+                </button>
+              </li>
               <li><hr className="dropdown-divider" /></li>
               <li>
                 <button

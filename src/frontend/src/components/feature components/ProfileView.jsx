@@ -140,7 +140,7 @@ function ProfileView() {
 
             <div className="d-flex justify-content-start mb-3">
               <button className="btn btn-outline-secondary" onClick={() => navigate(-1)}>
-                <i className="bi bi-arrow-left me-1"></i> Back
+                <i className="bi bi-arrow-left me-1"></i> Back to Home
               </button>
             </div>
 

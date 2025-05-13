@@ -1,6 +1,6 @@
 # src/backend/notifications.py
 from .init_flask import db
-from datetime import datetime
+from datetime import datetime, timezone # Import timezone
 
 class Notification(db.Model):
     __tablename__ = 'notifications'
@@ -44,6 +44,10 @@ class Notification(db.Model):
             else:
                  display_message = f"You have a new notification of type: {self.notification_type}."
         
+        # Make created_at timezone-aware (UTC) before formatting
+        # This ensures the ISO string includes UTC timezone information (e.g., 'Z' or +00:00)
+        aware_created_at = self.created_at.replace(tzinfo=timezone.utc)
+        
         return {
             'id': self.id,
             'recipient_id': self.recipient_id,
@@ -56,5 +60,5 @@ class Notification(db.Model):
             'notification_type': self.notification_type,
             'message': display_message,
             'is_read': self.is_read,
-            'created_at': self.created_at.isoformat()
+            'created_at': aware_created_at.isoformat() # Now it will be like '2023-10-27T12:34:56+00:00'
         }
