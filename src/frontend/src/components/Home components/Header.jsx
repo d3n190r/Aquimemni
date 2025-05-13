@@ -6,12 +6,15 @@ const Header = ({ onLogout }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [userData, setUserData] = useState({ username: 'Loading...', avatar: 1, notificationsEnabled: true }); // Default to true
+  const [userData, setUserData] = useState({ username: 'Loading...', avatar: 1, notificationsEnabled: true });
 
   const [notificationCount, setNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const [isClearingNotifications, setIsClearingNotifications] = useState(false); // New state for "Clear All"
+  const [notificationError, setNotificationError] = useState(''); // For errors in notification dropdown
+
   const notificationPollIntervalRef = useRef(null);
   const notificationDropdownRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -34,7 +37,6 @@ const Header = ({ onLogout }) => {
       })
       .catch((err) => {
          if (isMountedRef.current && err !== 'Component unmounted') console.error("Profile fetch error:", err);
-         // If profile fetch fails, assume default notifications enabled (true) or handle as needed
       });
     return () => { isMountedRef.current = false; };
   }, []);
@@ -45,7 +47,7 @@ const Header = ({ onLogout }) => {
         clearInterval(notificationPollIntervalRef.current);
         notificationPollIntervalRef.current = null;
       }
-      if (isMountedRef.current && !userData.notificationsEnabled) setNotificationCount(0); // Clear count if disabled
+      if (isMountedRef.current && !userData.notificationsEnabled) setNotificationCount(0);
       return;
     }
     try {
@@ -91,6 +93,7 @@ const Header = ({ onLogout }) => {
         return;
     }
     setIsLoadingNotifications(true);
+    setNotificationError(''); // Clear previous errors
     try {
       const res = await fetch('/api/notifications?limit=10', { credentials: 'include' });
       if (!isMountedRef.current) return;
@@ -98,11 +101,18 @@ const Header = ({ onLogout }) => {
         const data = await res.json();
         if (isMountedRef.current) setNotifications(data);
       } else {
-        if (isMountedRef.current) setNotifications([]);
+        const errData = await res.json().catch(() => ({}));
+        if (isMountedRef.current) {
+            setNotifications([]);
+            setNotificationError(errData.error || `Failed to fetch notifications (Status: ${res.status})`);
+        }
         console.error("Failed to fetch notifications:", res.status);
       }
     } catch (err) {
-      if (isMountedRef.current) setNotifications([]);
+      if (isMountedRef.current) {
+        setNotifications([]);
+        setNotificationError("Network error fetching notifications.");
+      }
       console.error("Network error fetching notifications:", err);
     } finally {
       if (isMountedRef.current) setIsLoadingNotifications(false);
@@ -134,11 +144,13 @@ const Header = ({ onLogout }) => {
     setIsNotificationDropdownOpen(willOpen);
 
     if (willOpen) {
-      fetchNotifications();
-      if (notificationCount > 0) {
-        setNotificationCount(0);
-        await markAllNotificationsAsReadOnBackend();
+      fetchNotifications(); // Fetch full list when opening
+      if (notificationCount > 0) { // If there were unread ones
+        setNotificationCount(0); // Optimistically update UI
+        await markAllNotificationsAsReadOnBackend(); // Tell backend
       }
+    } else {
+        setNotificationError(''); // Clear errors when closing
     }
   };
 
@@ -149,9 +161,9 @@ const Header = ({ onLogout }) => {
     const notificationWasUnread = notifications.find(n => n.id === notificationId && !n.is_read);
     setNotifications(prev => prev.map(n => n.id === notificationId ? {...n, is_read: true} : n));
 
-    if (notificationWasUnread) {
-        setNotificationCount(prev => Math.max(0, prev -1));
-    }
+    // No need to adjust notificationCount here as it's cleared when dropdown opens
+    // And individual read actions are mainly for persistent state.
+    // If we want to be super precise, we *could* decrement here if it was unread.
 
     try {
       const res = await fetch(`/api/notifications/${notificationId}/read`, {
@@ -160,16 +172,53 @@ const Header = ({ onLogout }) => {
       });
       if (!isMountedRef.current) return;
       if (res.ok) {
-         await fetchNotificationCount();
+         // Optionally re-fetch count if needed, but opening dropdown clears it anyway
+         // await fetchNotificationCount();
       } else {
         console.error("Failed to mark notification as read on backend:", res.status);
-        await fetchNotificationCount();
+        // Potentially revert UI if backend fails, or re-fetch count
+        // await fetchNotificationCount();
       }
     } catch (err) {
       if (isMountedRef.current) console.error("Network error marking notification as read:", err);
-      await fetchNotificationCount();
+      // await fetchNotificationCount();
     }
   };
+
+  const handleClearAllNotifications = async () => {
+    if (!isMountedRef.current || !userData.notificationsEnabled || notifications.length === 0) return;
+
+    setIsClearingNotifications(true);
+    setNotificationError('');
+    try {
+        const res = await fetch('/api/notifications/clear-all', {
+            method: 'POST', // Or DELETE
+            credentials: 'include',
+        });
+        if (!isMountedRef.current) return;
+        if (res.ok) {
+            if (isMountedRef.current) {
+                setNotifications([]);
+                setNotificationCount(0); // Count is already 0 if dropdown was opened
+                                      // but good to be explicit if called from elsewhere
+            }
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            if (isMountedRef.current) {
+                setNotificationError(errData.error || `Failed to clear notifications (Status: ${res.status})`);
+            }
+            console.error("Failed to clear notifications:", res.status);
+        }
+    } catch (err) {
+        if (isMountedRef.current) {
+            setNotificationError("Network error clearing notifications.");
+        }
+        console.error("Network error clearing notifications:", err);
+    } finally {
+        if (isMountedRef.current) setIsClearingNotifications(false);
+    }
+  };
+
 
   const handleNotificationJoin = async (sessionCode, notificationId, e) => {
       if (e) e.stopPropagation();
@@ -186,7 +235,10 @@ const Header = ({ onLogout }) => {
   useEffect(() => {
       const handleClickOutside = (event) => {
           if (notificationDropdownRef.current && !notificationDropdownRef.current.contains(event.target)) {
-              if (isMountedRef.current) setIsNotificationDropdownOpen(false);
+              if (isMountedRef.current) {
+                setIsNotificationDropdownOpen(false);
+                setNotificationError(''); // Clear errors when closing via outside click
+              }
           }
       };
       document.addEventListener('mousedown', handleClickOutside);
@@ -315,12 +367,24 @@ const Header = ({ onLogout }) => {
                 </button>
                 {isNotificationDropdownOpen && userData.notificationsEnabled && (
                      <div className="dropdown-menu dropdown-menu-end shadow border-1 p-2 show" style={{ width: '380px', maxHeight: '450px', overflowY: 'auto', position: 'absolute', right: 0, left: 'auto' }}>
-                         <h6 className="dropdown-header px-3 pt-2 pb-1 d-flex justify-content-between align-items-center">
-                             <span>Notifications</span>
-                             <button className="btn btn-sm btn-link p-0 text-primary" onClick={() => { fetchNotifications(); fetchNotificationCount();}} disabled={isLoadingNotifications} title="Refresh notifications">
-                                <i className={`bi bi-arrow-clockwise ${isLoadingNotifications ? 'spinner-grow spinner-grow-sm' : ''}`}></i>
-                             </button>
-                         </h6>
+                         <div className="d-flex justify-content-between align-items-center px-3 pt-2 pb-1 dropdown-header">
+                             <h6 className="mb-0">Notifications</h6>
+                             <div>
+                                 <button className="btn btn-sm btn-link p-0 text-primary me-2" onClick={() => { fetchNotifications(); fetchNotificationCount();}} disabled={isLoadingNotifications || isClearingNotifications} title="Refresh notifications">
+                                    <i className={`bi bi-arrow-clockwise ${isLoadingNotifications ? 'spinner-grow spinner-grow-sm' : ''}`}></i>
+                                 </button>
+                                 <button
+                                    className="btn btn-sm btn-outline-danger p-0 px-2 py-1"
+                                    onClick={handleClearAllNotifications}
+                                    disabled={isLoadingNotifications || isClearingNotifications || notifications.length === 0}
+                                    title="Clear all notifications"
+                                    style={{fontSize: '0.75rem', lineHeight: '1'}}
+                                >
+                                    {isClearingNotifications ? <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> : "Clear All"}
+                                 </button>
+                             </div>
+                         </div>
+                         {notificationError && <div className="alert alert-danger small p-2 mx-2 my-1">{notificationError}</div>}
                          {isLoadingNotifications ? (
                               <div className="text-center p-3">
                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...
@@ -384,7 +448,6 @@ const Header = ({ onLogout }) => {
                 className="rounded-circle"
                 style={{ width: '40px', height: '40px', marginRight: '.5rem', border: '1px solid #ccc' }}
               />
-              {/* Added text-primary class to the username span */}
               <span className="d-none d-md-inline text-primary fw-medium">{userData.username}</span>
             </button>
             <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">

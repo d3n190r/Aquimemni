@@ -876,6 +876,27 @@ def join_quiz_session(session_code_param):
         db.session.rollback(); print(f"Error joining session {session_code_param}: {e}")
         return jsonify({'error': 'Could not join the session due to an internal error'}), 500
 
+
+@main_bp.route('/notifications/clear-all', methods=['POST'])  # Or use DELETE
+def clear_all_notifications():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+    user_id_val = session['user_id']
+
+    try:
+        # Delete notifications directly for efficiency, or mark as 'deleted' if you have such a status
+        num_deleted = Notification.query.filter_by(recipient_id=user_id_val).delete()
+        db.session.commit()
+
+        current_app.logger.info(f"Cleared {num_deleted} notifications for user {user_id_val}.")
+
+        return jsonify({'message': f'{num_deleted} notifications cleared successfully.'}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error clearing all notifications for user {user_id_val}: {e}")
+        return jsonify({'error': 'Could not clear all notifications due to an internal error'}), 500
+
+
 @main_bp.route('/sessions/<string:session_code_param>/start', methods=['POST'])
 def start_quiz_session(session_code_param):
     if 'user_id' not in session: return jsonify({'error': 'Not logged in'}), 401
