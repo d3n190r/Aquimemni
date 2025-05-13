@@ -10,7 +10,7 @@ function QuizSession() {
     const navigate = useNavigate();
     const [sessionInfo, setSessionInfo] = useState(null);
     const [participants, setParticipants] = useState([]);
-    const [currentUser, setCurrentUser] = useState(null); 
+    const [currentUser, setCurrentUser] = useState(null);
     const [selectedTeam, setSelectedTeam] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -26,9 +26,9 @@ function QuizSession() {
     const [invitableUsers, setInvitableUsers] = useState([]);
     const [isLoadingInvitableUsers, setIsLoadingInvitableUsers] = useState(false);
     const [inviteSearchTerm, setInviteSearchTerm] = useState('');
-    const [invitedUserIds, setInvitedUserIds] = useState(new Set()); 
+    const [invitedUserIds, setInvitedUserIds] = useState(new Set());
     const [inviteError, setInviteError] = useState('');
-    const [isSendingInvite, setIsSendingInvite] = useState(null); 
+    const [isSendingInvite, setIsSendingInvite] = useState(null);
     // --- End Invite State ---
 
     const pollIntervalRef = useRef(null);
@@ -41,7 +41,7 @@ function QuizSession() {
             if (!isMountedRef.current) return null;
             if (response.ok) {
                 const userData = await response.json();
-                if (isMountedRef.current) setCurrentUser(userData);
+                if (isMountedRef.current) setCurrentUser(userData); // Set currentUser here
                 return userData;
             } else {
                 if (isMountedRef.current) navigate('/login');
@@ -55,18 +55,23 @@ function QuizSession() {
         return null;
     }, [navigate]);
 
-    const fetchData = useCallback(async (user) => {
-        if (!user || !code || !isMountedRef.current) return;
+    // fetchData now takes the current user as an argument
+    // Its dependencies are reduced to only 'code'
+    const fetchData = useCallback(async (userForFetch) => {
+        if (!userForFetch || !code || !isMountedRef.current) return;
+
         try {
             const sessionRes = await fetch(`/api/sessions/${code}`, { credentials: 'include' });
             if (!isMountedRef.current) return;
+
             if (!sessionRes.ok) {
                 const errText = await sessionRes.text();
                 const specificError = sessionRes.status === 404 ? `Session "${code}" not found or has ended.` : `Error fetching session details (Status: ${sessionRes.status}).`;
-                if (isMountedRef.current && error !== specificError) setError(specificError);
+                setError(prevError => prevError !== specificError ? specificError : prevError);
                 if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                 return;
             }
+
             const currentSessionData = await sessionRes.json();
             if (!isMountedRef.current) return;
             setSessionInfo(prev => JSON.stringify(prev) !== JSON.stringify(currentSessionData) ? currentSessionData : prev);
@@ -78,60 +83,114 @@ function QuizSession() {
 
             const participantsRes = await fetch(`/api/sessions/${code}/participants`, { credentials: 'include' });
             if (!isMountedRef.current) return;
+
             if (participantsRes.ok) {
                 const participantsData = await participantsRes.json();
                 if (isMountedRef.current) {
                     setParticipants(prev => JSON.stringify(prev) !== JSON.stringify(participantsData) ? participantsData : prev);
-                    const currentUserParticipant = participantsData.find(p => p.user_id === user.id);
-                    const newIsJoined = !!currentUserParticipant;
-                    const newSelectedTeam = currentUserParticipant?.team_number ? String(currentUserParticipant.team_number) : '';
-                    if (isJoined !== newIsJoined) setIsJoined(newIsJoined);
-                    if (selectedTeam !== newSelectedTeam) setSelectedTeam(newSelectedTeam);
-                    if (error && error !== `Session "${code}" not found or has ended.`) setError('');
+
+                    const currentUserParticipant = participantsData.find(p => p.user_id === userForFetch.id);
+                    const newIsJoinedServer = !!currentUserParticipant;
+
+                    setIsJoined(prevIsJoined => prevIsJoined !== newIsJoinedServer ? newIsJoinedServer : prevIsJoined);
+
+                    if (newIsJoinedServer && currentUserParticipant) {
+                        const serverTeam = currentUserParticipant.team_number ? String(currentUserParticipant.team_number) : '';
+                        // Only update selectedTeam from server if it's different
+                        // This avoids overwriting a local selection if the user hasn't clicked "Join" yet
+                        // but ensures it syncs if the server confirms their team.
+                        setSelectedTeam(prevSelectedTeam => {
+                            if (prevSelectedTeam !== serverTeam) return serverTeam;
+                            return prevSelectedTeam;
+                        });
+
+                    }
+                    // If !newIsJoinedServer, local selectedTeam (from dropdown interaction) is preserved.
+
+                    // Clear non-fatal errors only if current error is not the "not found" one
+                    setError(prevError => (prevError && prevError !== `Session "${code}" not found or has ended.`) ? '' : prevError);
                 }
             } else {
-                if (!error && isMountedRef.current) setError("Could not update participant list.");
+                setError(prevError => {
+                    const newErr = "Could not update participant list.";
+                    return prevError !== newErr ? newErr : prevError;
+                });
             }
         } catch (err) {
-            if (isMountedRef.current && !error) setError('Failed to fetch session data. Please refresh.');
+            setError(prevError => {
+                const newErr = 'Failed to fetch session data. Please refresh.';
+                return prevError !== newErr ? newErr : prevError;
+            });
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         }
-    }, [code, error, isJoined, selectedTeam]); 
+    }, [code]); // Only 'code' as a dependency for fetchData's stability.
 
+    // Effect for initialization and when 'code' changes
     useEffect(() => {
         isMountedRef.current = true;
-        setIsLoading(true); setError(''); setSessionInfo(null); setParticipants([]); setInvitedUserIds(new Set());
+        setIsLoading(true);
+        // Reset states when 'code' changes or on initial mount
+        setError('');
+        setSessionInfo(null);
+        setParticipants([]);
+        setSelectedTeam('');
+        setIsJoined(false);
+        setInvitedUserIds(new Set());
+        setCurrentUser(null); // Reset current user too, it will be fetched again
+
+        if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+        }
 
         const initialize = async () => {
-            const user = await fetchCurrentUser();
-            if (user && isMountedRef.current) {
-                await fetchData(user);
+            const user = await fetchCurrentUser(); // Fetches and sets currentUser state
+            if (user && code && isMountedRef.current) { // Check code again after user is fetched
+                await fetchData(user); // Pass the fetched user to fetchData
             }
             if (isMountedRef.current) setIsLoading(false);
         };
 
-        if (code) initialize();
-        else { if (isMountedRef.current) { setError("No session code provided in URL."); setIsLoading(false); }}
+        if (code) {
+            initialize();
+        } else {
+            if (isMountedRef.current) {
+                setError("No session code provided in URL.");
+                setIsLoading(false);
+            }
+        }
 
         return () => {
             isMountedRef.current = false;
             if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         };
-    }, [code, fetchCurrentUser, fetchData]);
+    }, [code, fetchCurrentUser, fetchData]); // fetchData is stable, fetchCurrentUser is stable
 
+    // Effect for polling, depends on currentUser being set
     useEffect(() => {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        if (pollIntervalRef.current) { // Clear previous interval if any
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+        }
+
+        // Start polling only if: not loading, currentUser is available, sessionInfo is available, and session has not started
         if (!isLoading && currentUser && sessionInfo && !sessionInfo.started && isMountedRef.current) {
-            pollIntervalRef.current = setInterval(async () => {
-                if (isMountedRef.current && currentUser) {
-                    await fetchData(currentUser);
+            pollIntervalRef.current = setInterval(() => {
+                if (isMountedRef.current && currentUser) { // Ensure currentUser is still valid inside interval
+                    fetchData(currentUser); // Call stable fetchData with current user
                 } else {
                     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
                 }
             }, 5000);
         }
-        return () => { if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); };
-    }, [isLoading, currentUser, sessionInfo, fetchData]);
+
+        return () => { // Cleanup on unmount or when dependencies change
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+            }
+        };
+    }, [isLoading, currentUser, sessionInfo, fetchData]); // Dependencies for controlling the poll
 
 
     const handleJoinTeam = async (e) => {
@@ -158,7 +217,9 @@ function QuizSession() {
             if (!isMountedRef.current) return;
             const result = await response.json();
             if (response.ok) {
+                // After successful join, immediately fetch data to update UI with server confirmation
                 if (isMountedRef.current && currentUser) await fetchData(currentUser);
+                 setIsJoined(true); // Optimistically set, will be confirmed by fetchData
             } else {
                 if (isMountedRef.current) setJoinError(result.error || 'Failed to join/switch team.');
             }
@@ -178,6 +239,7 @@ function QuizSession() {
             const result = await response.json();
             if (response.ok) {
                 if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                // After successful start, fetch data to update sessionInfo.started
                 if (isMountedRef.current && currentUser) await fetchData(currentUser);
             } else {
                 if (isMountedRef.current) { setStartError(result.error || 'Failed to start quiz.'); setIsStarting(false); }
@@ -185,6 +247,7 @@ function QuizSession() {
         } catch (err) {
             if (isMountedRef.current) { setStartError('A network error occurred.'); setIsStarting(false); }
         }
+        // No finally setIsStarting(false) here; if successful, component will switch to QuizSimulator
     };
 
     const copyCodeToClipboard = useCallback(async () => {
@@ -251,8 +314,8 @@ function QuizSession() {
     if (error) {
         return (<div className="container mt-5"><div className="alert alert-danger text-center"><h4 className="alert-heading">Error</h4><p>{error}</p></div><div className="text-center mt-3"><button className="btn btn-primary" onClick={() => navigate('/home')}><i className="bi bi-house-door me-1"></i> Back to Home</button></div></div>);
     }
-    if (!sessionInfo) {
-         return (<div className="container mt-5"><div className="alert alert-warning text-center">Could not load session info.</div><div className="text-center mt-3"><button className="btn btn-secondary" onClick={() => navigate('/home')}><i className="bi bi-house-door me-1"></i> Back to Home</button></div></div>);
+    if (!sessionInfo || !currentUser) { // Added !currentUser check
+         return (<div className="container mt-5"><div className="alert alert-warning text-center">Could not load session info or user data.</div><div className="text-center mt-3"><button className="btn btn-secondary" onClick={() => navigate('/home')}><i className="bi bi-house-door me-1"></i> Back to Home</button></div></div>);
     }
     if (sessionInfo.started) {
         return <QuizSimulator quizId={sessionInfo.quiz_id} sessionCode={code} />;
