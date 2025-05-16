@@ -1,12 +1,15 @@
 // src/frontend/src/components/Home components/Header.jsx
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Switch from "react-switch";
 
 const Header = ({ onLogout }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [userData, setUserData] = useState({ username: 'Loading...', avatar: 1, notificationsEnabled: true });
+
+  const [darkMode, setDarkMode] = useState(false);
 
   const [notificationCount, setNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -300,14 +303,19 @@ const Header = ({ onLogout }) => {
     }
   };
 
+  const handleToggleDarkMode = (checked) => {
+      setDarkMode(checked);
+      document.body.classList.toggle('dark-mode', checked); // optional: apply class to body
+  };
+
   return (
-    <header className="bg-light p-3 shadow-sm fixed-top" style={{ zIndex: 2000 }}>
+    <header className={`${darkMode ? 'bg-dark' : 'bg-light'} p-3 shadow-sm fixed-top`} style={{ zIndex: 2000 }}>
       <div className="d-flex justify-content-between align-items-center">
         <form onSubmit={handleSearch} className="position-relative me-3" style={{ width: '50%' }}>
           <div className="input-group">
             <input
               type="search"
-              className="form-control"
+              className={`form-control ${darkMode ? 'bg-dark text-white' : ''}`}
               placeholder="Search quizzes…"
               value={searchQuery}
               onChange={e => {
@@ -320,7 +328,7 @@ const Header = ({ onLogout }) => {
           </div>
 
           {searchResults.length > 0 && (
-            <div className="position-absolute top-100 start-0 end-0 bg-white border mt-1 rounded shadow overflow-auto" style={{ zIndex: 2001, maxHeight: '300px' }}>
+            <div className={`position-absolute top-100 start-0 end-0 ${darkMode ? 'bg-dark text-white' : 'bg-light'} border mt-1 rounded shadow overflow-auto`} style={{ zIndex: 2001, maxHeight: '300px' }}>
               {searchResults.map(item => (
                 <div
                   key={item.id}
@@ -338,7 +346,7 @@ const Header = ({ onLogout }) => {
                   />
                   <div>
                     <div className="fw-medium">{item.name}</div>
-                    <small className="text-muted">by {item.creator}</small>
+                    <small className={`${darkMode ? 'text-white':'text-muted'}`}>by {item.creator}</small>
                   </div>
                 </div>
               ))}
@@ -346,10 +354,24 @@ const Header = ({ onLogout }) => {
           )}
         </form>
 
+          <div className="d-flex align-content-end">
+              <Switch
+                  checked={darkMode}
+                  onChange={handleToggleDarkMode}
+                  uncheckedIcon={<div style={{display: "flex", alignItems: "center", justifyContent: "center"}}> 🔆 </div>}
+                  checkedIcon={<div style={{display: "flex", alignItems: "center", justifyContent: "center"}}> 🌙 </div>}
+                  offColor={"#777"}
+                  onColor={"#0000a0"}
+                  onHandleColor={"#000050"}
+                  width={64}
+                  aria-label="Dark mode toggle"
+                />
+          </div>
+
         <div className="d-flex align-items-center">
            <div className="dropdown me-3" ref={notificationDropdownRef}>
                 <button
-                  className="btn btn-light position-relative"
+                  className={`btn ${darkMode ? 'btn-dark' : 'btn-light'} position-relative`}
                   type="button"
                   onClick={toggleNotificationDropdown}
                   aria-label={`Notifications (${userData.notificationsEnabled ? notificationCount : 'Disabled'})`}
