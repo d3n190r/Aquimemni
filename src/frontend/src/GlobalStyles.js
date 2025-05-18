@@ -25,11 +25,16 @@ const applyGlobalStyles = (darkMode) => {
     }
     
     /* Change appearance of dropdown menu */
-    .react-select__control z{
+    .react-select__control {
       background-color: ${darkMode ? getBlack() : getWhite()} !important;
       color: ${darkMode ? getWhite() : getBlack()} !important;
     }
    
+  .shadow-sm {
+    box-shadow: ${darkMode
+      ? '0 2px 4px rgba(255, 255, 255, 0.1)' // light shadow for visibility
+      : '0 2px 4px rgba(0, 0, 0, 0.1)'} !important;
+  }
     
     body {
       background-color: ${darkMode ? getBlack() : getWhite()};
@@ -39,10 +44,10 @@ const applyGlobalStyles = (darkMode) => {
       padding: 0;
     }
 
-    .input-group, input, select, textarea {
+    input {
       background-color: ${darkMode ? getBlack() : getWhite()} !important;
       color: ${darkMode ? getWhite() : getBlack()} !important;
-      border-color: ${darkMode ? '#444' : '#ccc'} !important;
+      border-color: ${darkMode ? '#000' : '#ccc'} !important;
     }
 
     .btn {

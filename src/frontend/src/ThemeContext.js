@@ -8,7 +8,7 @@ export const useDarkMode = () => {
 };
 
 // Define colors for dark and light modes
-export const getBlack = () => '#121212';
+export const getBlack = () => '#111112';
 export const getWhite = () => '#ffffff';
 
 // Create a ThemeProvider component to provide the theme state
@@ -22,10 +22,8 @@ export const ThemeProvider = ({ children }) => {
       setDarkMode(e.matches);
     };
 
-    // Set initial state based on system preference
+    // Set initial state & listen for preference changes
     setDarkMode(mediaQuery.matches);
-
-    // Listen for system dark mode preference changes
     mediaQuery.addEventListener('change', handleColorModeChange);
 
     // Clean up listener on unmount
@@ -34,13 +32,8 @@ export const ThemeProvider = ({ children }) => {
     };
   }, []);
 
-  // Function to toggle dark mode manually
-  const toggleDarkMode = () => {
-    setDarkMode((prevMode) => !prevMode);
-  };
-
   return (
-    <ThemeContext.Provider value={{ darkMode, toggleDarkMode }}>
+    <ThemeContext.Provider value={{ darkMode }}>
       {children}
     </ThemeContext.Provider>
   );

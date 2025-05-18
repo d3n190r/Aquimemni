@@ -53,7 +53,7 @@ function Login({ onLogin }) {
 
   return (
     // Hoofdcontainer om content op de pagina te centreren
-    <div className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh', backgroundColor: '#f0f2f5' /* Subtiele achtergrondkleur */ }}>
+    <div className="d-flex bg-light align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
       <div className="container" style={{ maxWidth: '450px' }}>
         <div className="card shadow-lg border-0 rounded-4 my-5"> {/* Afgeronde hoeken en meer schaduw */}
           <div className="card-body p-4 p-sm-5"> {/* Meer padding, vooral op grotere schermen */}

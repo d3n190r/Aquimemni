@@ -14,7 +14,7 @@ const NavigationSidebar = ({ style }) => { // Accept style prop from Home.js
     // Apply styles passed from parent for flex layout control
     // Removed fixed-start and margin-top, relying on flexbox in Home.js
     <nav
-      className="bg-light shadow-sm" // Keep base Bootstrap classes
+      className="shadow-sm" // Keep base Bootstrap classes
       style={style} // Apply dynamic styles (width, height, overflow)
     >
       <div className="p-3">

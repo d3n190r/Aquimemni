@@ -239,6 +239,7 @@ export const StartQuizSection = () => {
                      <div className="mb-3">
                          <label htmlFor="numTeamsInput" className="form-label">Number of Teams:</label>
                          <input
+                             color={'#000'}
                              type="number"
                              id="numTeamsInput"
                              className="form-control"
@@ -352,7 +353,7 @@ export const ActivitySection = () => {
                                     onClick={ activity.link ? () => navigate(activity.link) : undefined }
                                 >
                                     <div className="d-flex align-items-center">
-                                        <span className={`me-3 p-2 rounded-circle bg-light d-inline-flex align-items-center justify-content-center`} style={{width: '40px', height: '40px'}}>
+                                        <span className={`me-3 p-2 rounded-circle d-inline-flex align-items-center justify-content-center`} style={{width: '40px', height: '40px'}}>
                                             <i className={`bi ${activity.icon || 'bi-bell-fill'} fs-5`}></i>
                                         </span>
                                         <span>{activity.text}</span>

@@ -301,7 +301,7 @@ const Header = ({ onLogout }) => {
   };
 
   return (
-    <header className="bg-light p-3 shadow-sm fixed-top" style={{ zIndex: 2000 }}>
+    <header className="p-3 shadow-sm fixed-top" style={{ zIndex: 2000 }}>
       <div className="d-flex justify-content-between align-items-center">
         <form onSubmit={handleSearch} className="position-relative me-3" style={{ width: '50%' }}>
           <div className="input-group">
