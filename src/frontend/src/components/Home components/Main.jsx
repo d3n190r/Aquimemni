@@ -364,48 +364,196 @@ export const HowItWorksSection = () => (
 /**
  * Component that displays recent user activity.
  * 
- * Shows a list of recent activities such as hosted games, created quizzes,
- * and joined sessions. Displays a placeholder message when no activity exists.
+ * Shows recently created quizzes and recently played quizzes.
+ * Provides quick access to the user's recent quiz activities.
  * 
  * @returns {JSX.Element} The rendered activity section
  */
 export const ActivitySection = () => {
-    const recentActivities = [];
+    const [recentlyCreatedQuizzes, setRecentlyCreatedQuizzes] = useState([]);
+    const [recentlyPlayedQuizzes, setRecentlyPlayedQuizzes] = useState([]);
+    const [isLoadingCreated, setIsLoadingCreated] = useState(true);
+    const [isLoadingPlayed, setIsLoadingPlayed] = useState(true);
+    const [createdError, setCreatedError] = useState('');
+    const [playedError, setPlayedError] = useState('');
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchRecentQuizzes = async () => {
+            setIsLoadingCreated(true);
+            setCreatedError('');
+            try {
+                const response = await fetch('/api/quizzes', { credentials: 'include' });
+                if (!response.ok) {
+                    throw new Error('Failed to fetch quizzes');
+                }
+                const data = await response.json();
+                // Take only the 5 most recent quizzes
+                setRecentlyCreatedQuizzes(data.slice(0, 5));
+            } catch (err) {
+                console.error('Error fetching recent quizzes:', err);
+                setCreatedError('Failed to load recent quizzes');
+            } finally {
+                setIsLoadingCreated(false);
+            }
+        };
+
+        const fetchRecentlyPlayedQuizzes = async () => {
+            setIsLoadingPlayed(true);
+            setPlayedError('');
+            try {
+                const response = await fetch('/api/recently-played-quizzes', { credentials: 'include' });
+                if (!response.ok) {
+                    throw new Error('Failed to fetch recently played quizzes');
+                }
+                const data = await response.json();
+                setRecentlyPlayedQuizzes(data);
+            } catch (err) {
+                console.error('Error fetching recently played quizzes:', err);
+                setPlayedError('Failed to load recently played quizzes');
+            } finally {
+                setIsLoadingPlayed(false);
+            }
+        };
+
+        fetchRecentQuizzes();
+        fetchRecentlyPlayedQuizzes();
+    }, []);
+
+    /**
+     * Formats a date string into a human-readable format.
+     * 
+     * @param {string} dateString - The ISO date string to format
+     * @returns {string} The formatted date string
+     */
+    const formatDate = (dateString) => {
+        if (!dateString) return 'Unknown date';
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString(undefined, { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        } catch (err) {
+            return 'Invalid date';
+        }
+    };
+
+    /**
+     * Navigates to the appropriate page when a recently played quiz is clicked.
+     * 
+     * @param {Object} quiz - The quiz object that was clicked
+     */
+    const handlePlayedQuizClick = (quiz) => {
+        // If the session has a code, navigate to the session results
+        if (quiz.session_code) {
+            navigate(`/session/results/${quiz.session_code}`);
+        } else {
+            // Otherwise, navigate to the quiz details
+            navigate(`/quiz/${quiz.quiz_id}`);
+        }
+    };
 
     return (
         <div className="col-12 mb-4">
             <div className="card border-light-subtle shadow-sm">
                 <div className="card-body p-lg-4 p-3">
                     <h5 className="card-title text-primary mb-3">
-                        <i className="bi bi-activity me-2"></i>Recent Activity
+                        <i className="bi bi-lightning-charge-fill me-2"></i>Quick Menu
                     </h5>
-                    {recentActivities.length > 0 ? (
+
+                    {/* Recently Created Quizzes Section */}
+                    <h6 className="mt-4 mb-3 border-bottom pb-2">
+                        <i className="bi bi-pencil-square me-2"></i>Recently Created Quizzes
+                    </h6>
+
+                    {isLoadingCreated ? (
+                        <div className="text-center py-3">
+                            <div className="spinner-border spinner-border-sm text-primary" role="status">
+                                <span className="visually-hidden">Loading...</span>
+                            </div>
+                            <span className="ms-2">Loading recent quizzes...</span>
+                        </div>
+                    ) : createdError ? (
+                        <div className="alert alert-danger py-2">{createdError}</div>
+                    ) : recentlyCreatedQuizzes.length > 0 ? (
                         <ul className="list-group list-group-flush">
-                            {recentActivities.map(activity => (
+                            {recentlyCreatedQuizzes.map(quiz => (
                                 <li
-                                    key={activity.id}
+                                    key={quiz.id}
                                     className="list-group-item d-flex justify-content-between align-items-center border-0 px-0 py-2"
-                                    style={ activity.link ? {cursor: 'pointer'} : {} }
-                                    onClick={ activity.link ? () => navigate(activity.link) : undefined }
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => navigate(`/quiz/${quiz.id}`)}
                                 >
                                     <div className="d-flex align-items-center">
-                                        <span className={`me-3 p-2 rounded-circle bg-light d-inline-flex align-items-center justify-content-center`} style={{width: '40px', height: '40px'}}>
-                                            <i className={`bi ${activity.icon || 'bi-bell-fill'} fs-5`}></i>
+                                        <span className="me-3 p-2 rounded-circle bg-light d-inline-flex align-items-center justify-content-center" style={{width: '40px', height: '40px'}}>
+                                            <i className="bi bi-question-circle fs-5"></i>
                                         </span>
-                                        <span>{activity.text}</span>
+                                        <div>
+                                            <div className="fw-medium">{quiz.name}</div>
+                                            <small className="text-muted">{quiz.questions_count} questions</small>
+                                        </div>
                                     </div>
-                                    <small className="text-muted">{activity.time}</small>
+                                    <small className="text-muted">{formatDate(quiz.created_at)}</small>
                                 </li>
                             ))}
                         </ul>
                     ) : (
-                        <div className="text-center text-muted py-4">
-                            <i className="bi bi-clock-history display-4 mb-3 d-block text-primary-emphasis"></i>
-                            <p className="h5 mb-2">No recent activity yet.</p>
+                        <p className="text-muted text-center py-3">You haven't created any quizzes yet.</p>
+                    )}
+
+                    {/* Recently Played Quizzes Section */}
+                    <h6 className="mt-4 mb-3 border-bottom pb-2">
+                        <i className="bi bi-controller me-2"></i>Recently Played Quizzes
+                    </h6>
+
+                    {isLoadingPlayed ? (
+                        <div className="text-center py-3">
+                            <div className="spinner-border spinner-border-sm text-primary" role="status">
+                                <span className="visually-hidden">Loading...</span>
+                            </div>
+                            <span className="ms-2">Loading recently played quizzes...</span>
+                        </div>
+                    ) : playedError ? (
+                        <div className="alert alert-danger py-2">{playedError}</div>
+                    ) : recentlyPlayedQuizzes.length > 0 ? (
+                        <ul className="list-group list-group-flush">
+                            {recentlyPlayedQuizzes.map(quiz => (
+                                <li
+                                    key={quiz.session_id}
+                                    className="list-group-item d-flex justify-content-between align-items-center border-0 px-0 py-2"
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => handlePlayedQuizClick(quiz)}
+                                >
+                                    <div className="d-flex align-items-center">
+                                        <span className="me-3 p-2 rounded-circle bg-light d-inline-flex align-items-center justify-content-center" style={{width: '40px', height: '40px'}}>
+                                            <i className="bi bi-controller fs-5"></i>
+                                        </span>
+                                        <div>
+                                            <div className="fw-medium">{quiz.quiz_name}</div>
+                                            <small className="text-muted">
+                                                Score: {quiz.score} {quiz.is_team_mode && quiz.team_number && `• Team ${quiz.team_number}`}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <small className="text-muted">{formatDate(quiz.played_at)}</small>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <div className="text-center text-muted py-3">
+                            <i className="bi bi-joystick display-4 mb-3 d-block text-primary-emphasis opacity-50"></i>
+                            <p className="mb-2">No recently played quizzes.</p>
                             <p className="small">
-                                Your hosted games, created quizzes, and joined sessions will appear here once you get started.
+                                Join quiz sessions to see them appear here.
                             </p>
+                            <button 
+                                className="btn btn-outline-primary btn-sm mt-2"
+                                onClick={() => navigate('/quiz-maker')}
+                            >
+                                <i className="bi bi-plus-circle me-1"></i> Create a Quiz
+                            </button>
                         </div>
                     )}
                 </div>

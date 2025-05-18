@@ -24,7 +24,7 @@ from .Questions import (
     Question, TextInputQuestion, MultipleChoiceOption,
     SliderQuestion, MultipleChoiceQuestion
 )
-from .session import QuizSession, SessionParticipant
+from .session import QuizSession, SessionParticipant as session_models_SessionParticipant  # Renamed to avoid conflict with Flask's session
 from .notifications import Notification # Import Notification model
 
 followers = db.Table('followers',
@@ -869,7 +869,7 @@ def invite_to_session(session_code_param):
     if not recipient_user_obj: return jsonify({'error': 'Recipient user not found'}), 404
     if recipient_id_val == host_id_val: return jsonify({'error': 'Cannot invite yourself to the session'}), 400
 
-    if SessionParticipant.query.filter_by(session_id=quiz_session_obj.id, user_id=recipient_id_val).first():
+    if session_models_SessionParticipant.query.filter_by(session_id=quiz_session_obj.id, user_id=recipient_id_val).first():
         return jsonify({'message': f'{recipient_user_obj.username} is already in this session', 'already_joined': True}), 200
 
     existing_invite_obj = Notification.query.filter_by(
@@ -915,7 +915,7 @@ def join_quiz_session(session_code_param):
         except (ValueError, TypeError, AssertionError):
             return jsonify({'error': f'A valid team number (1-{quiz_session_obj.num_teams}) is required for this session'}), 400
 
-    participant_obj = SessionParticipant.query.filter_by(session_id=quiz_session_obj.id, user_id=user_id_val).first()
+    participant_obj = session_models_SessionParticipant.query.filter_by(session_id=quiz_session_obj.id, user_id=user_id_val).first()
 
     try:
         action_taken_str = 'no_change'; message_response_str = "You are already participating in this session."
@@ -930,7 +930,7 @@ def join_quiz_session(session_code_param):
                 message_response_str = 'Successfully switched to individual participation.'
 
         else:
-            participant_obj = SessionParticipant(session_id=quiz_session_obj.id, user_id=user_id_val, team_number=team_number_val)
+            participant_obj = session_models_SessionParticipant(session_id=quiz_session_obj.id, user_id=user_id_val, team_number=team_number_val)
             db.session.add(participant_obj)
             action_taken_str = 'joined'
             message_response_str = f'Successfully joined Team {team_number_val}.' if team_number_val else 'Successfully joined the session.'
@@ -1028,8 +1028,8 @@ def get_session_participants(session_code_param):
     quiz_session_obj = QuizSession.query.filter_by(code=session_code_param).first()
     if not quiz_session_obj: return jsonify({'error': 'Session not found'}), 404
 
-    participants_list_data = SessionParticipant.query.options(
-        joinedload(SessionParticipant.user)
+    participants_list_data = session_models_SessionParticipant.query.options(
+        joinedload(session_models_SessionParticipant.user)
     ).filter_by(session_id=quiz_session_obj.id).all()
 
     return jsonify([{
@@ -1048,9 +1048,9 @@ def submit_session_score(session_code_param):
     try: score_float = float(score_req_val)
     except (ValueError, TypeError): return jsonify({'error': 'Invalid score format, must be a number'}), 400
 
-    participant_obj = SessionParticipant.query.join(QuizSession).filter(
+    participant_obj = session_models_SessionParticipant.query.join(QuizSession).filter(
         QuizSession.code == session_code_param,
-        SessionParticipant.user_id == user_id_val
+        session_models_SessionParticipant.user_id == user_id_val
     ).first()
 
     if not participant_obj: return jsonify({'error': 'Participant not found in this session or session does not exist'}), 404
@@ -1068,9 +1068,9 @@ def get_quiz_session_results(session_code_param):
     quiz_session_obj = QuizSession.query.filter_by(code=session_code_param).first()
     if not quiz_session_obj: return jsonify({'error': 'Session not found'}), 404
 
-    participants_list_data = SessionParticipant.query.options(joinedload(SessionParticipant.user)).filter_by(
+    participants_list_data = session_models_SessionParticipant.query.options(joinedload(session_models_SessionParticipant.user)).filter_by(
         session_id=quiz_session_obj.id
-    ).order_by(SessionParticipant.score.desc()).all()
+    ).order_by(session_models_SessionParticipant.score.desc()).all()
 
     return jsonify([{
         'user_id': p.user.id, 'username': p.user.username, 'avatar': p.user.avatar,
@@ -1162,3 +1162,65 @@ def mark_all_notifications_as_read():
         db.session.rollback()
         print(f"Error marking all notifications as read for user {user_id_val}: {e}")
         return jsonify({'error': 'Could not mark all notifications as read'}), 500
+
+@main_bp.route('/recently-played-quizzes', methods=['GET'])
+def get_recently_played_quizzes():
+    """
+    Fetches the quizzes that the current user has recently played or hosted.
+
+    Returns a list of recently played quizzes, sorted by the session's creation date
+    in descending order (most recent first). Each entry includes the quiz name,
+    session code, date played, and other relevant details.
+
+    Returns:
+        JSON response with the list of recently played quizzes or an error message.
+    """
+    from flask import session as flask_session  # Import Flask's session object with a different name to avoid conflict
+    if 'user_id' not in flask_session: return jsonify({'error': 'Not logged in'}), 401
+    user_id_val = flask_session['user_id']
+
+    limit_val = request.args.get('limit', 5, type=int)
+    if limit_val > 20: limit_val = 20  # Cap the limit to prevent excessive queries
+
+    try:
+        # Query for sessions where the user was a participant
+        participated_sessions = (
+            db.session.query(
+                QuizSession,
+                Quiz.id.label('quiz_id'),
+                Quiz.name.label('quiz_name'),
+                Quiz.user_id.label('quiz_creator_id'),
+                User.username.label('quiz_creator_username'),
+                User.avatar.label('quiz_creator_avatar'),
+                session_models_SessionParticipant.score.label('user_score')
+            )
+            .join(Quiz, QuizSession.quiz_id == Quiz.id)
+            .join(User, Quiz.user_id == User.id)
+            .join(session_models_SessionParticipant, QuizSession.id == session_models_SessionParticipant.session_id)
+            .filter(session_models_SessionParticipant.user_id == user_id_val)
+            .filter(QuizSession.started == True)  # Only include sessions that were actually started
+            .order_by(QuizSession.created_at.desc())
+            .limit(limit_val)
+            .all()
+        )
+
+        result = []
+        for session, quiz_id, quiz_name, creator_id, creator_username, creator_avatar, score in participated_sessions:
+            result.append({
+                'session_id': session.id,
+                'session_code': session.code,
+                'quiz_id': quiz_id,
+                'quiz_name': quiz_name,
+                'quiz_creator_id': creator_id,
+                'quiz_creator_username': creator_username,
+                'quiz_creator_avatar': creator_avatar,
+                'played_at': session.created_at.replace(tzinfo=timezone.utc).isoformat() if session.created_at else None,
+                'score': score if score is not None else 0.0,
+                'is_team_mode': session.is_team_mode,
+                'team_number': next((p.team_number for p in session.participants if p.user_id == user_id_val), None)
+            })
+
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"Error fetching recently played quizzes for user {user_id_val}: {e}")
+        return jsonify({'error': 'Could not fetch recently played quizzes'}), 500
