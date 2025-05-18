@@ -1,10 +1,24 @@
 // frontend/src/components/Login.js
+/**
+ * Login component for user authentication.
+ * 
+ * This component provides a form for users to enter their credentials and authenticate.
+ * It includes form validation, error handling, and navigation to the home page upon
+ * successful login. It also provides a link to the signup page for new users.
+ */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Optioneel: importeer een custom CSS-bestand als je paginaspecifieke stijlen nodig hebt
 // import './Login.css'; // Je kunt dit bestand aanmaken als Bootstrap niet volstaat
 
+/**
+ * Login component that handles user authentication.
+ * 
+ * @param {Object} props - Component properties
+ * @param {Function} props.onLogin - Callback function to execute after successful login
+ * @returns {JSX.Element} The rendered login form
+ */
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -14,6 +28,14 @@ function Login({ onLogin }) {
 
   const APP_NAME = "Aquimemni"; // Definieer hier de naam van je app
 
+  /**
+   * Handles form submission for user login.
+   * 
+   * Validates the form inputs, sends a login request to the API,
+   * and handles the response appropriately.
+   * 
+   * @param {Event} e - The form submission event
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');

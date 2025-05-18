@@ -1,4 +1,9 @@
 # src/backend/init_flask.py
+"""
+Initializes Flask extensions and blueprints for the application.
+This module sets up SQLAlchemy, Flask-Migrate, and CORS configurations
+that are used throughout the application.
+"""
 from flask import Blueprint # Flask import zelf is niet nodig, create_app staat in app.py
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate

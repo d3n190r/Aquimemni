@@ -1,4 +1,10 @@
 # src/backend/app.py
+"""
+Main application module for the Aquimemni backend.
+
+This module defines the database models, API routes, and business logic for the quiz application.
+It includes user authentication, quiz management, session handling, and notification systems.
+"""
 import random
 import string
 from datetime import datetime, timedelta, timezone # Added timezone
@@ -27,6 +33,13 @@ followers = db.Table('followers',
 )
 
 class User(db.Model):
+    """
+    Represents a user in the application.
+
+    This model stores user account information, profile details, and relationships
+    with other users (followers/following). It also manages user preferences and
+    handles authentication through password hashing.
+    """
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(32), unique=True, nullable=False)
@@ -56,16 +69,46 @@ class User(db.Model):
     notifications_sent = db.relationship('Notification', foreign_keys=[Notification.sender_id], backref='sender', lazy='dynamic', cascade='all, delete-orphan')
 
     def set_password(self, password):
-         self.password_hash = generate_password_hash(password)
+        """
+        Sets the user's password by generating a secure hash.
+
+        Args:
+            password (str): The plain text password to hash and store.
+        """
+        self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
+        """
+        Verifies if the provided password matches the stored hash.
+
+        Args:
+            password (str): The plain text password to check.
+
+        Returns:
+            bool: True if the password matches, False otherwise.
+        """
         return check_password_hash(self.password_hash, password)
 
     def is_following(self, other_user):
+        """
+        Checks if this user is following another user.
+
+        Args:
+            other_user (User): The user to check if being followed.
+
+        Returns:
+            bool: True if this user is following other_user, False otherwise.
+        """
         if not other_user or not other_user.id: return False
         return self.followed.filter(followers.c.followed_id == other_user.id).count() > 0
 
     def follow(self, other_user):
+        """
+        Makes this user follow another user and creates a notification.
+
+        Args:
+            other_user (User): The user to follow.
+        """
         if other_user and other_user.id != self.id and not self.is_following(other_user):
             self.followed.append(other_user)
             # Create a notification for the followed user only if their notifications are enabled
@@ -78,16 +121,36 @@ class User(db.Model):
                 db.session.add(notification)
 
     def unfollow(self, other_user):
+        """
+        Makes this user stop following another user.
+
+        Args:
+            other_user (User): The user to unfollow.
+        """
         if other_user and other_user.id and self.is_following(other_user):
             self.followed.remove(other_user)
 
     def remove_follower(self, user_to_remove): # A user (user_to_remove) stops following self
+        """
+        Removes a user from this user's followers list.
+
+        This effectively makes user_to_remove stop following this user.
+
+        Args:
+            user_to_remove (User): The user to remove from followers.
+        """
         if user_to_remove and self.followers.filter(followers.c.follower_id == user_to_remove.id).count() > 0:
             # The 'followers' backref means: self.followers is a list of users who follow self.
             # So, user_to_remove is in that list. We need user_to_remove to unfollow self.
             user_to_remove.unfollow(self)
 
 class Quiz(db.Model):
+    """
+    Represents a quiz created by a user.
+
+    A quiz contains a collection of questions and can be used in multiple quiz sessions.
+    Each quiz is associated with a specific user who created it.
+    """
     __tablename__ = 'quizzes'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
@@ -101,6 +164,18 @@ class Quiz(db.Model):
 
 # --- APPLICATION FACTORY ---
 def create_app(config_class=Config):
+    """
+    Flask application factory function.
+
+    Creates and configures a Flask application instance with the specified configuration.
+    Initializes extensions like SQLAlchemy, Flask-Migrate, and CORS, and registers blueprints.
+
+    Args:
+        config_class: Configuration class to use (defaults to Config).
+
+    Returns:
+        Flask: The configured Flask application instance.
+    """
     app = Flask(__name__)
     app.config.from_object(config_class)
 
@@ -929,7 +1004,7 @@ def get_session_details(session_code_param):
     host_user_obj = quiz_session_obj.host
     current_quiz_obj = quiz_session_obj.quiz
     quiz_creator_obj = current_quiz_obj.user if current_quiz_obj else None
-    
+
     aware_created_at = quiz_session_obj.created_at.replace(tzinfo=timezone.utc) if quiz_session_obj.created_at else None
 
     return jsonify({

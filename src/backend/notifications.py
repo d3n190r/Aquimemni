@@ -1,8 +1,25 @@
 # src/backend/notifications.py
+"""
+Defines the Notification model for handling user notifications within the application.
+Notifications can be for various events like new followers or session invites.
+"""
 from .init_flask import db
 from datetime import datetime, timezone # Import timezone
 
 class Notification(db.Model):
+    """
+    Represents a notification sent to a user.
+
+    Attributes:
+        id (int): Primary key for the notification.
+        recipient_id (int): Foreign key to the User who receives the notification.
+        sender_id (int, optional): Foreign key to the User who sent the notification (can be null for system notifications).
+        session_id (int, optional): Foreign key to a QuizSession, if the notification is related to a session invite.
+        notification_type (str): Type of the notification (e.g., 'new_follower', 'session_invite').
+        message (str, optional): Custom message for the notification. If not provided, a default message is generated.
+        is_read (bool): Flag indicating whether the notification has been read by the recipient.
+        created_at (datetime): Timestamp of when the notification was created.
+    """
     __tablename__ = 'notifications'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -17,9 +34,21 @@ class Notification(db.Model):
     # Relationships are defined via backref in User and QuizSession models
 
     def __repr__(self):
+        """
+        Returns a string representation of the Notification object.
+        """
         return f'<Notification {self.id} for User {self.recipient_id} Type: {self.notification_type}>'
 
     def to_dict(self):
+        """
+        Serializes the Notification object to a dictionary.
+
+        Generates a default message if one is not explicitly set, based on the notification type.
+        Formats the `created_at` timestamp to an ISO string with UTC timezone information.
+
+        Returns:
+            dict: A dictionary representation of the notification.
+        """
         sender_username = self.sender.username if self.sender else "System"
         sender_avatar = self.sender.avatar if self.sender else None
         quiz_name = None
@@ -43,11 +72,11 @@ class Notification(db.Model):
                  display_message = f"{sender_username} started following you."
             else:
                  display_message = f"You have a new notification of type: {self.notification_type}."
-        
+
         # Make created_at timezone-aware (UTC) before formatting
         # This ensures the ISO string includes UTC timezone information (e.g., 'Z' or +00:00)
         aware_created_at = self.created_at.replace(tzinfo=timezone.utc)
-        
+
         return {
             'id': self.id,
             'recipient_id': self.recipient_id,

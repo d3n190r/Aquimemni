@@ -1,9 +1,23 @@
 // frontend/src/components/Signup.js
+/**
+ * Signup component for user registration.
+ * 
+ * This component provides a form for new users to create an account.
+ * It includes form validation, password confirmation, error handling,
+ * and navigation to the login page upon successful registration.
+ */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Optioneel: import './Signup.css'; // Voor paginaspecifieke stijlen
 
+/**
+ * Signup component that handles user registration.
+ * 
+ * @param {Object} props - Component properties
+ * @param {Function} props.onSignup - Callback function to execute after successful registration
+ * @returns {JSX.Element} The rendered signup form
+ */
 function Signup({ onSignup }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -15,6 +29,14 @@ function Signup({ onSignup }) {
 
   const APP_NAME = "Aquimemni"; // Definieer hier de naam van je app
 
+  /**
+   * Handles form submission for user registration.
+   * 
+   * Validates the form inputs, ensures passwords match, sends a registration
+   * request to the API, and handles the response appropriately.
+   * 
+   * @param {Event} e - The form submission event
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');

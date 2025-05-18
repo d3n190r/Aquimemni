@@ -1,6 +1,17 @@
+"""
+Configuration settings for the application.
+Defines environment-specific settings for the Flask application, database connection,
+and session management.
+"""
 import os
 
 class Config:
+    """
+    Base configuration class for the application.
+
+    Contains settings for Flask, database connection, and session management
+    that are common across all environments.
+    """
     # -------------------------------
     # Algemene Flask-config
     # -------------------------------
@@ -28,5 +39,11 @@ class Config:
     SESSION_COOKIE_SECURE = False  # In productie op True zetten als je https gebruikt!
 
 class TestConfig(Config):
+    """
+    Configuration class for testing environment.
+
+    Extends the base Config class with test-specific settings,
+    such as enabling testing mode and using a separate test database.
+    """
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "postgresql://app:123456@localhost/mydb_test"

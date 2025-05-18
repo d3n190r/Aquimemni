@@ -1,3 +1,9 @@
+"""
+WSGI entry point for the Aquimemni application.
+
+This module creates the Flask application instance that can be used by WSGI servers
+like Gunicorn or uWSGI for production deployment, or run directly for development.
+"""
 from .backend.app import create_app # Correctly import create_app from app.py
 # db import no longer needed here if create_all is handled by migrations
 # from src.backend.init_flask import db 
