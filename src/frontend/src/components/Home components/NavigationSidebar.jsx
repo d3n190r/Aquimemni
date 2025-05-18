@@ -1,4 +1,11 @@
 // frontend/src/components/NavigationSidebar.js
+/**
+ * Navigation sidebar component for the application.
+ * 
+ * This component provides a sidebar with navigation links to different sections
+ * of the application, such as Home, Quiz Maker, My Quizzes, and Followers.
+ * It uses React Router's NavLink for active link styling.
+ */
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import './index.css'; // Keep existing CSS imports if needed

@@ -1,7 +1,19 @@
 // src/frontend/src/components/feature components/QuizDetails.jsx
+/**
+ * Quiz details component for viewing and interacting with a specific quiz.
+ * 
+ * This component displays detailed information about a quiz, including its questions,
+ * creation date, and creator. It provides functionality for simulating the quiz,
+ * hosting a session with team options, and navigating to related pages.
+ */
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
+/**
+ * QuizDetails component for displaying and interacting with a specific quiz.
+ * 
+ * @returns {JSX.Element} The rendered quiz details page
+ */
 export default function QuizDetails() {
   const { quizId } = useParams();
   const navigate = useNavigate();
@@ -23,6 +35,12 @@ export default function QuizDetails() {
   //   fetchLoggedInUser();
   // }, []);
 
+  /**
+   * Effect hook to fetch quiz data when component mounts or quizId changes.
+   * 
+   * Retrieves detailed information about the quiz from the API, including its questions,
+   * creator, and creation date. Handles errors and updates the quiz state with the fetched data.
+   */
   useEffect(() => {
     const fetchQuiz = async () => {
       setError('');
@@ -45,6 +63,15 @@ export default function QuizDetails() {
     }
   }, [quizId]);
 
+  /**
+   * Formats a date string into a localized, human-readable format.
+   * 
+   * Converts an ISO date string to a formatted string showing the year, month, and day
+   * in the US locale format. Provides a fallback for invalid date strings.
+   * 
+   * @param {string} iso - The ISO date string to format
+   * @returns {string} The formatted date string
+   */
   const formatDate = iso => {
     try {
       return new Date(iso).toLocaleDateString('en-US', { // Of gebruik navigator.language
@@ -55,8 +82,20 @@ export default function QuizDetails() {
     }
   };
 
+  /**
+   * Navigates to the quiz simulation page.
+   * 
+   * Redirects the user to a page where they can simulate taking the quiz
+   * without creating an actual session.
+   */
   const handleSimulate = () => navigate(`/simulate/${quizId}`);
 
+  /**
+   * Opens the host session modal for the quiz.
+   * 
+   * Validates that the quiz has questions before opening the modal.
+   * Displays an error message if the quiz has no questions.
+   */
   const handleOpenHostModal = () => {
     if (quiz && quiz.questions_count === 0) {
         // Dit zou ook door de disabled state van de knop afgevangen moeten worden, maar extra check kan geen kwaad.
@@ -68,6 +107,15 @@ export default function QuizDetails() {
     setShowHostModal(true);
   };
 
+  /**
+   * Creates a new quiz session from the host modal.
+   * 
+   * Validates the quiz and team settings, then sends a request to the API
+   * to create a new session. On success, navigates to the session page.
+   * Handles errors and loading states appropriately.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the session creation process completes
+   */
   const handleCreateSessionFromModal = async () => {
     if (!quiz) {
         setApiError('Quiz data is not available.');

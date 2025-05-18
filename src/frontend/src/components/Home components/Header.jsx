@@ -1,7 +1,21 @@
 // src/frontend/src/components/Home components/Header.jsx
+/**
+ * Header component for the application.
+ * 
+ * This component provides the top navigation bar with search functionality,
+ * notification system, and user profile menu. It handles user authentication status,
+ * search queries, and notification management.
+ */
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+/**
+ * Header component that displays the application's top navigation bar.
+ * 
+ * @param {Object} props - Component properties
+ * @param {Function} props.onLogout - Callback function to execute when user logs out
+ * @returns {JSX.Element} The rendered header component
+ */
 const Header = ({ onLogout }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,6 +33,12 @@ const Header = ({ onLogout }) => {
   const notificationDropdownRef = useRef(null);
   const isMountedRef = useRef(true);
 
+  /**
+   * Effect hook to fetch user profile data when component mounts.
+   * 
+   * Retrieves the user's profile information including username, avatar,
+   * and notification preferences. Sets up cleanup for component unmounting.
+   */
   useEffect(() => {
     isMountedRef.current = true;
     fetch('/api/profile', { credentials: 'include' })
@@ -41,6 +61,15 @@ const Header = ({ onLogout }) => {
     return () => { isMountedRef.current = false; };
   }, []);
 
+  /**
+   * Fetches the count of unread notifications for the current user.
+   * 
+   * This memoized callback function retrieves the number of unread notifications
+   * from the API and updates the notification count state. It handles component
+   * unmounting and disabled notifications appropriately.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the count is fetched
+   */
   const fetchNotificationCount = useCallback(async () => {
     if (!isMountedRef.current || userData.username === 'Loading...' || !userData.notificationsEnabled) {
       if (notificationPollIntervalRef.current) {
@@ -70,6 +99,13 @@ const Header = ({ onLogout }) => {
     }
   }, [userData.username, userData.notificationsEnabled]);
 
+  /**
+   * Effect hook to set up notification polling.
+   * 
+   * Sets up an interval to periodically fetch notification counts when the user
+   * is authenticated and has notifications enabled. Cleans up the interval when
+   * the component unmounts or when notifications are disabled.
+   */
   useEffect(() => {
     if (userData.username !== 'Loading...' && userData.notificationsEnabled && isMountedRef.current) {
       fetchNotificationCount();
@@ -87,6 +123,14 @@ const Header = ({ onLogout }) => {
     };
   }, [fetchNotificationCount, userData.username, userData.notificationsEnabled]);
 
+  /**
+   * Fetches the list of notifications for the current user.
+   * 
+   * Retrieves the most recent notifications from the API and updates the notifications state.
+   * Handles loading states, errors, and component unmounting appropriately.
+   * 
+   * @returns {Promise<void>} A promise that resolves when notifications are fetched
+   */
   const fetchNotifications = async () => {
     if (!isMountedRef.current || !userData.notificationsEnabled) {
         if (isMountedRef.current) setNotifications([]);
@@ -119,6 +163,14 @@ const Header = ({ onLogout }) => {
     }
   };
 
+  /**
+   * Marks all notifications as read on the backend.
+   * 
+   * Sends a request to the API to mark all notifications as read for the current user.
+   * Handles component unmounting and disabled notifications appropriately.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the operation completes
+   */
   const markAllNotificationsAsReadOnBackend = async () => {
     if (!isMountedRef.current || !userData.notificationsEnabled) return;
     try {
@@ -135,6 +187,14 @@ const Header = ({ onLogout }) => {
     }
   };
 
+  /**
+   * Toggles the notification dropdown open/closed state.
+   * 
+   * When opening the dropdown, fetches the latest notifications and marks them as read.
+   * When closing, clears any error messages. Handles disabled notifications appropriately.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the toggle operation completes
+   */
   const toggleNotificationDropdown = async () => {
     if (!isMountedRef.current || !userData.notificationsEnabled) {
         if (isMountedRef.current) setIsNotificationDropdownOpen(false);
@@ -154,6 +214,16 @@ const Header = ({ onLogout }) => {
     }
   };
 
+  /**
+   * Marks a specific notification as read.
+   * 
+   * Updates the UI to show the notification as read and sends a request to the API
+   * to persist this state. Handles event propagation and component unmounting.
+   * 
+   * @param {number} notificationId - The ID of the notification to mark as read
+   * @param {Event} e - The event object, if triggered by a user interaction
+   * @returns {Promise<void>} A promise that resolves when the operation completes
+   */
   const markNotificationAsRead = async (notificationId, e) => {
     if (e) e.stopPropagation();
     if (!isMountedRef.current || !userData.notificationsEnabled) return;
@@ -185,6 +255,14 @@ const Header = ({ onLogout }) => {
     }
   };
 
+  /**
+   * Clears all notifications for the current user.
+   * 
+   * Sends a request to the API to clear all notifications and updates the UI accordingly.
+   * Handles loading states, errors, and component unmounting.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the operation completes
+   */
   const handleClearAllNotifications = async () => {
     if (!isMountedRef.current || !userData.notificationsEnabled || notifications.length === 0) return;
 
@@ -220,6 +298,17 @@ const Header = ({ onLogout }) => {
   };
 
 
+  /**
+   * Handles joining a session from a notification.
+   * 
+   * Marks the notification as read and navigates to the session page.
+   * Handles event propagation and component unmounting.
+   * 
+   * @param {string} sessionCode - The code of the session to join
+   * @param {number} notificationId - The ID of the notification to mark as read
+   * @param {Event} e - The event object, if triggered by a user interaction
+   * @returns {Promise<void>} A promise that resolves when the operation completes
+   */
   const handleNotificationJoin = async (sessionCode, notificationId, e) => {
       if (e) e.stopPropagation();
       if (!isMountedRef.current || !userData.notificationsEnabled) return;
@@ -232,6 +321,12 @@ const Header = ({ onLogout }) => {
       }
   };
 
+  /**
+   * Effect hook to handle clicks outside the notification dropdown.
+   * 
+   * Closes the notification dropdown when the user clicks outside of it.
+   * Cleans up the event listener when the component unmounts.
+   */
   useEffect(() => {
       const handleClickOutside = (event) => {
           if (notificationDropdownRef.current && !notificationDropdownRef.current.contains(event.target)) {
@@ -247,6 +342,14 @@ const Header = ({ onLogout }) => {
       };
   }, []);
 
+  /**
+   * Handles the user logout process.
+   * 
+   * Clears notification polling, sends a logout request to the API,
+   * resets local state, and navigates to the login page.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the logout process completes
+   */
   const handleLogout = async () => {
     if (notificationPollIntervalRef.current) {
       clearInterval(notificationPollIntervalRef.current);
@@ -267,6 +370,15 @@ const Header = ({ onLogout }) => {
     }
   };
 
+  /**
+   * Handles the search form submission.
+   * 
+   * Searches for quizzes based on the entered search query and updates the search results.
+   * Handles component unmounting and empty search queries appropriately.
+   * 
+   * @param {Event} e - The form submission event
+   * @returns {Promise<void>} A promise that resolves when the search completes
+   */
   const handleSearch = async e => {
     e.preventDefault();
     if (!searchQuery.trim()) {
@@ -292,6 +404,14 @@ const Header = ({ onLogout }) => {
     }
   };
 
+  /**
+   * Navigates to a specific quiz page.
+   * 
+   * Redirects the user to the details page for the selected quiz and
+   * clears the search input and results.
+   * 
+   * @param {number} id - The ID of the quiz to navigate to
+   */
   const goToQuiz = id => {
     if (isMountedRef.current) {
         navigate(`/quiz/${id}`);

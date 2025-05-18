@@ -1,7 +1,27 @@
 // src/frontend/src/components/feature components/QuizSimulator.jsx
+/**
+ * Quiz simulator component for taking quizzes.
+ * 
+ * This component provides an interactive interface for users to take quizzes, either in
+ * simulation mode or as part of a live session. It supports multiple question types
+ * (multiple choice, text input, and slider), tracks scores, manages a timer for each question,
+ * and displays a summary of results at the end.
+ */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+/**
+ * QuizSimulator component for taking quizzes.
+ * 
+ * Handles the quiz-taking experience, including question display, answer selection,
+ * timing, scoring, and results display. Can be used both for practice simulations
+ * and for participating in live quiz sessions.
+ * 
+ * @param {Object} props - Component properties
+ * @param {string} [props.quizId] - The ID of the quiz to simulate (can also be provided via URL params)
+ * @param {string} [props.sessionCode] - The session code if part of a live session (can also be provided via URL query)
+ * @returns {JSX.Element} The rendered quiz simulator interface
+ */
 function QuizSimulator({ quizId: quizIdProp, sessionCode: sessionCodeProp }) {
   const { quizId: quizIdFromParams } = useParams();
   const quizIdToUse = quizIdProp ?? quizIdFromParams;
@@ -20,6 +40,15 @@ function QuizSimulator({ quizId: quizIdProp, sessionCode: sessionCodeProp }) {
   const timerId = useRef(null);
   const isMountedRef = useRef(true);
 
+  /**
+   * Submits the user's final score to the session.
+   * 
+   * Sends the user's score to the backend API for recording in the session results.
+   * Only called when the quiz is part of a live session (sessionCode is provided).
+   * 
+   * @param {number} finalScore - The final score to submit
+   * @returns {Promise<void>} A promise that resolves when the score submission completes
+   */
   const submitSessionScore = useCallback(async (finalScore) => {
     if (!sessionCode || !isMountedRef.current) return;
     try {
@@ -43,6 +72,15 @@ function QuizSimulator({ quizId: quizIdProp, sessionCode: sessionCodeProp }) {
     }
   }, [sessionCode]);
 
+  /**
+   * Handles advancing to the next question or completing the quiz.
+   * 
+   * Evaluates the current answer, updates the score, and either advances to the next question
+   * or completes the quiz and submits the final score if it's the last question.
+   * Also clears the timer interval when advancing.
+   * 
+   * @returns {void}
+   */
   const handleNext = useCallback(() => {
     if (!isMountedRef.current) return;
     if (timerId.current) { clearInterval(timerId.current); timerId.current = null; }
@@ -157,7 +195,23 @@ function QuizSimulator({ quizId: quizIdProp, sessionCode: sessionCodeProp }) {
   }, [currentQuestion, quiz]);
 
 
+  /**
+   * Formats a time value in seconds to a MM:SS string format.
+   * 
+   * @param {number} seconds - The time in seconds to format
+   * @returns {string} The formatted time string in MM:SS format
+   */
   const formatTime = (seconds) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+
+  /**
+   * Gets the text representation of a user's answer for display in results.
+   * 
+   * Converts the stored answer value to a human-readable text format based on the question type.
+   * 
+   * @param {Object} question - The question object
+   * @param {number} index - The index of the question in the quiz
+   * @returns {string} The text representation of the user's answer
+   */
   const getUserAnswerText = (question, index) => {
       const answerValue = selectedAnswers[index];
       if (typeof answerValue === 'undefined') return 'No answer given';

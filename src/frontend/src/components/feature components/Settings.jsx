@@ -1,7 +1,23 @@
 // src/frontend/src/components/feature components/Settings.jsx
+/**
+ * User settings management component.
+ * 
+ * This component provides an interface for users to manage their account settings,
+ * including password changes, notification preferences, and account deletion.
+ * It handles form validation, API communication, and provides feedback on actions.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+/**
+ * Settings component for managing user account settings.
+ * 
+ * Allows users to change their password, toggle notification preferences,
+ * and delete their account. Handles form validation, API requests, and
+ * provides appropriate feedback for success and error states.
+ * 
+ * @returns {JSX.Element} The rendered settings page
+ */
 function Settings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -52,6 +68,15 @@ function Settings() {
     fetchProfileSettings();
   }, [navigate]);
 
+  /**
+   * Handles the password change form submission.
+   * 
+   * Validates that the new passwords match, sends the password change request to the API,
+   * and provides feedback on success or failure. Clears form fields on success.
+   * 
+   * @param {Event} e - The form submission event
+   * @returns {Promise<void>} A promise that resolves when the password change process completes
+   */
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     setPasswordError('');
@@ -92,6 +117,14 @@ function Settings() {
     }
   };
 
+  /**
+   * Handles the account deletion process.
+   * 
+   * Validates the password, sends the account deletion request to the API,
+   * and navigates to the login page on success. Provides feedback on errors.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the account deletion process completes
+   */
   const handleDeleteAccount = async () => {
     setDeleteError('');
     setDeleteSuccess('');
@@ -128,6 +161,14 @@ function Settings() {
     }
   };
 
+  /**
+   * Handles toggling notification preferences.
+   * 
+   * Updates the notification preference state optimistically, sends the change to the API,
+   * and reverts the state if the API request fails. Provides feedback on success or failure.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the notification preference update completes
+   */
   const handleNotificationToggle = async () => {
     const newNotificationsEnabled = !notificationsEnabled;
     setNotificationsEnabled(newNotificationsEnabled); 

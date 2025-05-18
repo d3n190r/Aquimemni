@@ -1,4 +1,11 @@
 // src/frontend/src/components/Home components/Home.js
+/**
+ * Home page component for the application.
+ * 
+ * This component serves as the main layout for the authenticated user's home page.
+ * It includes a header, navigation sidebar, and main content area, and handles
+ * authentication verification and logout functionality.
+ */
 import React, { useEffect } from 'react';
 import Header from './Header'; // Assuming Header component exists and is correct
 import NavigationSidebar from './NavigationSidebar'; // Assuming Sidebar component exists and is correct
@@ -8,10 +15,22 @@ import { useNavigate } from 'react-router-dom';
 // Define approx header height for padding calculation
 const HEADER_HEIGHT = '70px'; // Adjust this value if your header's actual height differs
 
+/**
+ * Home component that serves as the main layout for authenticated users.
+ * 
+ * @param {Object} props - Component properties
+ * @param {Function} props.onLogout - Callback function to execute when user logs out
+ * @returns {JSX.Element} The rendered home page
+ */
 const Home = ({ onLogout }) => {
   const navigate = useNavigate();
 
-  // Optional: Check authentication status on load
+  /**
+   * Effect hook to verify authentication status when component mounts.
+   * 
+   * Makes an API request to check if the user is authenticated.
+   * If authentication fails, logs the user out and redirects to the login page.
+   */
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -33,7 +52,12 @@ const Home = ({ onLogout }) => {
   }, [navigate, onLogout]); // Add onLogout to dependencies if it can change
 
 
-  // handleLogout function (if needed by Header or Sidebar, pass it down)
+  /**
+   * Handles the user logout process.
+   * 
+   * Sends a logout request to the API, clears local authentication state,
+   * and redirects the user to the login page.
+   */
   const handleLogoutClick = async () => {
     try {
         await fetch('/api/logout', { method: 'POST', credentials: 'include' });

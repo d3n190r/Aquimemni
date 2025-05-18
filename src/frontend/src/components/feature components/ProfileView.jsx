@@ -1,9 +1,27 @@
 // src/frontend/src/components/feature components/ProfileView.jsx
+/**
+ * Public profile view component.
+ * 
+ * This component displays a user's profile information for viewing by other users.
+ * It shows the user's username, bio, avatar, banner, and follower statistics.
+ * It also provides functionality for following or unfollowing the displayed user.
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import './Profile.css'; // Using the same CSS for consistency
 
 const BANNER_IMAGE_EXTENSION_PUBLIC = '.jpg'; 
+
+/**
+ * Generates the file path for a banner image based on its identifier.
+ * 
+ * Validates the identifier against a list of predefined banner image IDs
+ * and returns the path to the corresponding image file. If the identifier
+ * is not valid or missing, falls back to the default banner.
+ * 
+ * @param {string|number} identifier - The identifier of the banner image
+ * @returns {string} The file path to the banner image
+ */
 const getBannerImagePathPublic = (identifier) => {
   const validIdentifiers = ['1','2','3','4','5','6','default'];
   if (!identifier || !validIdentifiers.includes(String(identifier))) { // String(identifier) voor de zekerheid
@@ -12,6 +30,15 @@ const getBannerImagePathPublic = (identifier) => {
   return `/banners/banner${identifier}${BANNER_IMAGE_EXTENSION_PUBLIC}`;
 };
 
+/**
+ * ProfileView component for displaying another user's profile.
+ * 
+ * Retrieves and displays a user's public profile information based on the userId URL parameter.
+ * Provides functionality for following/unfollowing the viewed user and displays their
+ * profile details, including username, bio, avatar, banner, and follower statistics.
+ * 
+ * @returns {JSX.Element} The rendered profile view page
+ */
 function ProfileView() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -20,6 +47,12 @@ function ProfileView() {
   const [error, setError] = useState('');
   const [loggedInUserId, setLoggedInUserId] = useState(null);
 
+  /**
+   * Effect hook to fetch the logged-in user's profile when component mounts.
+   * 
+   * Retrieves the current user's ID to determine if they are viewing their own profile
+   * and to enable/disable follow functionality appropriately.
+   */
   useEffect(() => {
     const fetchOwnProfile = async () => {
       try {
@@ -33,6 +66,15 @@ function ProfileView() {
     fetchOwnProfile();
   }, []);
 
+  /**
+   * Fetches the public profile data for the user specified by userId.
+   * 
+   * Retrieves the user's profile information from the API, including username,
+   * bio, avatar, banner settings, and follower statistics. Validates banner settings
+   * and applies default values if needed. Updates loading state and error messages.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the profile data is fetched
+   */
   const fetchPublicProfile = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -64,6 +106,15 @@ function ProfileView() {
      }
    }, [userId, fetchPublicProfile]); 
 
+  /**
+   * Handles the follow/unfollow action for the viewed profile.
+   * 
+   * Sends a request to the API to follow or unfollow the user based on the current
+   * follow status. Refreshes the profile data after a successful action to update
+   * the UI with the new follow status and follower count.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the follow/unfollow action completes
+   */
   const handleFollowToggle = async () => {
     if (!profile || profile.viewing_own_profile || !loggedInUserId) return;
     const url = profile.is_following ? `/api/unfollow/${profile.id}` : `/api/follow/${profile.id}`;
@@ -80,6 +131,15 @@ function ProfileView() {
     }
   };
 
+  /**
+   * Formats a date string into a localized, human-readable format.
+   * 
+   * Converts an ISO date string to a formatted string showing the year, month, and day
+   * in the user's locale format. Handles cases where the date is missing or invalid.
+   * 
+   * @param {string} isoDate - The ISO date string to format
+   * @returns {string} The formatted date string or an appropriate message if unavailable
+   */
   const formatRegistrationDate = (isoDate) => {
     if (!isoDate) return 'N/A';
     try {

@@ -1,7 +1,19 @@
 // src/frontend/src/components/feature components/Followers.js
+/**
+ * Followers management component.
+ * 
+ * This component allows users to manage their social connections by viewing and interacting
+ * with their followers, following list, and discovering new users. It provides functionality
+ * for searching users, following/unfollowing, and removing followers.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom'; // Import Link
 
+/**
+ * Followers component for managing user connections.
+ * 
+ * @returns {JSX.Element} The rendered followers management interface
+ */
 function Followers() {
   const [activeTab, setActiveTab] = useState('followers'); // 'followers' | 'following' | 'allUsers'
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,6 +26,12 @@ function Followers() {
   const [_error, setError] = useState(''); // Renamed to avoid conflict
   const navigate = useNavigate();
 
+  /**
+   * Effect hook to load initial data when component mounts.
+   * 
+   * Verifies user authentication and fetches follower/following lists.
+   * Redirects to login page if user is not authenticated.
+   */
   useEffect(() => {
     const fetchProfileAndLists = async () => {
       try {
@@ -39,6 +57,11 @@ function Followers() {
     fetchProfileAndLists();
   }, [navigate]); // Added navigate to dependency array
 
+  /**
+   * Fetches the list of users who follow the current user.
+   * 
+   * Updates the followers state with the fetched data.
+   */
   const fetchFollowers = async () => {
     try {
       const response = await fetch('/api/followers', { credentials: 'include' });
@@ -53,6 +76,11 @@ function Followers() {
     }
   };
 
+  /**
+   * Fetches the list of users that the current user follows.
+   * 
+   * Updates the following state with the fetched data.
+   */
   const fetchFollowing = async () => {
     try {
       const response = await fetch('/api/following', { credentials: 'include' });
@@ -67,6 +95,11 @@ function Followers() {
     }
   };
 
+  /**
+   * Fetches the list of all users in the system.
+   * 
+   * Updates the allUsers state with the fetched data.
+   */
   const fetchAllUsers = async () => {
     try {
       const response = await fetch('/api/users/all', { credentials: 'include' });
@@ -81,6 +114,13 @@ function Followers() {
     }
   };
 
+  /**
+   * Handles the search form submission.
+   * 
+   * Searches for users based on the entered search term and updates the search results.
+   * 
+   * @param {Event} e - The form submission event
+   */
   const handleSearch = async (e) => {
     e.preventDefault();
     setSearchPerformed(false); // Reset before new search
@@ -113,7 +153,15 @@ function Followers() {
     }
   };
 
-  // Helper function to update user's follow status across all lists
+  /**
+   * Updates a user's follow status across all lists.
+   * 
+   * This helper function ensures that when a user's follow status changes,
+   * the change is reflected consistently across all user lists in the UI.
+   * 
+   * @param {number} userId - The ID of the user whose follow status is changing
+   * @param {boolean} newFollowStatus - The new follow status (true for following, false for not following)
+   */
   const updateUserFollowStatus = (userId, newFollowStatus) => {
     setSearchResults(prev => prev.map(u => u.id === userId ? { ...u, is_following: newFollowStatus } : u));
     setFollowers(prev => prev.map(u => u.id === userId ? { ...u, is_following: newFollowStatus } : u));
@@ -127,6 +175,13 @@ function Followers() {
   };
 
 
+  /**
+   * Handles the action of following a user.
+   * 
+   * Sends a request to the API to follow the specified user and updates the UI accordingly.
+   * 
+   * @param {number} userId - The ID of the user to follow
+   */
   const handleFollow = async (userId) => {
     try {
       const response = await fetch(`/api/follow/${userId}`, {
@@ -144,6 +199,13 @@ function Followers() {
     }
   };
 
+  /**
+   * Handles the action of unfollowing a user.
+   * 
+   * Sends a request to the API to unfollow the specified user and updates the UI accordingly.
+   * 
+   * @param {number} userId - The ID of the user to unfollow
+   */
   const handleUnfollow = async (userId) => {
     try {
       const response = await fetch(`/api/unfollow/${userId}`, {
@@ -161,6 +223,14 @@ function Followers() {
     }
   };
 
+  /**
+   * Handles the action of removing a follower.
+   * 
+   * Sends a request to the API to remove the specified user from the current user's followers
+   * and updates the UI accordingly.
+   * 
+   * @param {number} followerId - The ID of the follower to remove
+   */
   const handleRemoveFollower = async (followerId) => {
     try {
       const response = await fetch(`/api/followers/${followerId}`, {
@@ -181,7 +251,16 @@ function Followers() {
     }
   };
 
-  // Helper to render a user item - used in multiple lists
+  /**
+   * Renders a user item for display in lists.
+   * 
+   * Creates a consistent UI element for displaying a user with their avatar, username,
+   * and action buttons. Used across multiple lists in the component.
+   * 
+   * @param {Object} user - The user object to render
+   * @param {React.ReactNode} actions - The action buttons to display for this user
+   * @returns {JSX.Element} The rendered user list item
+   */
   const renderUserItem = (user, actions) => (
     <li key={user.id} className="list-group-item d-flex justify-content-between align-items-center">
       <Link to={`/profile/view/${user.id}`} className="text-decoration-none text-dark d-flex align-items-center">

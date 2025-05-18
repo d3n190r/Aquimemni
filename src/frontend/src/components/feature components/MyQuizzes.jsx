@@ -1,8 +1,20 @@
 // frontend/src/components/feature components/MyQuizzes.jsx
+/**
+ * My Quizzes component for managing user-created quizzes.
+ * 
+ * This component displays a list of quizzes created by the user, allowing them to view,
+ * edit, delete, and host quizzes. It includes functionality for expanding quiz details,
+ * hosting quiz sessions with team options, and navigating to the quiz editor.
+ */
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'react-bootstrap-icons';
 import { Link, useNavigate } from 'react-router-dom';
 
+/**
+ * MyQuizzes component for displaying and managing user-created quizzes.
+ * 
+ * @returns {JSX.Element} The rendered my quizzes page
+ */
 function MyQuizzes() {
   const [quizzes, setQuizzes] = useState([]);
   const [error, setError] = useState(''); // Algemene fouten voor de pagina
@@ -17,6 +29,12 @@ function MyQuizzes() {
   const [isCreatingSession, setIsCreatingSession] = useState(false);
 
 
+  /**
+   * Effect hook to fetch the user's quizzes when component mounts.
+   * 
+   * Retrieves the list of quizzes created by the user from the API
+   * and updates the quizzes state with the fetched data.
+   */
   useEffect(() => {
     const fetchQuizzes = async () => {
       setError('');
@@ -39,6 +57,16 @@ function MyQuizzes() {
     fetchQuizzes();
   }, []);
 
+  /**
+   * Handles the deletion of a quiz.
+   * 
+   * Displays a confirmation dialog and, if confirmed, sends a request to the API
+   * to delete the specified quiz. Updates the UI by removing the deleted quiz
+   * from the list and closing its details if expanded.
+   * 
+   * @param {number} quizId - The ID of the quiz to delete
+   * @returns {Promise<void>} A promise that resolves when the deletion process completes
+   */
   const handleDelete = async (quizId) => {
     if (!window.confirm('Are you sure you want to delete this quiz? This action cannot be undone!')) {
       return;
@@ -65,6 +93,14 @@ function MyQuizzes() {
     }
   };
 
+  /**
+   * Opens the host session modal for a quiz.
+   * 
+   * Validates that the quiz has questions before opening the modal.
+   * Sets up the modal with the selected quiz and default team settings.
+   * 
+   * @param {Object} quiz - The quiz object to host
+   */
   const handleOpenHostModal = (quiz) => {
     if (quiz.questions_count === 0) {
         setError(`Quiz "${quiz.name}" has no questions and cannot be hosted. Please add questions first.`);
@@ -78,6 +114,15 @@ function MyQuizzes() {
     setShowHostModal(true);
   };
 
+  /**
+   * Creates a new quiz session from the host modal.
+   * 
+   * Validates the quiz and team settings, then sends a request to the API
+   * to create a new session. On success, navigates to the session page.
+   * Handles errors and loading states appropriately.
+   * 
+   * @returns {Promise<void>} A promise that resolves when the session creation process completes
+   */
   const handleCreateSessionFromModal = async () => {
     if (!quizToHost) {
         setApiErrorModal('No quiz selected to host.');
@@ -123,10 +168,27 @@ function MyQuizzes() {
   };
 
 
+  /**
+   * Toggles the expanded/collapsed state of a quiz's details.
+   * 
+   * If the quiz is already expanded, it collapses it. If it's collapsed,
+   * it expands it and collapses any previously expanded quiz.
+   * 
+   * @param {number} quizId - The ID of the quiz to toggle
+   */
   const toggleQuizDetails = (quizId) => {
     setExpandedQuizId(expandedQuizId === quizId ? null : quizId);
   };
 
+  /**
+   * Formats a date string into a localized, human-readable format.
+   * 
+   * Converts a date string to a formatted string showing the year, month, day,
+   * hour, and minute in the user's locale format.
+   * 
+   * @param {string} dateString - The date string to format
+   * @returns {string} The formatted date string
+   */
   const formatDate = (dateString) => {
     const options = {
       year: 'numeric',
@@ -142,6 +204,15 @@ function MyQuizzes() {
     }
   };
 
+  /**
+   * Counts the number of questions of each type in a quiz.
+   * 
+   * Analyzes an array of questions and returns an object with counts
+   * for each question type (text input, multiple choice, and slider).
+   * 
+   * @param {Array} questions - The array of question objects to analyze
+   * @returns {Object} An object with counts for each question type
+   */
   const countQuestionTypes = (questions) => {
     const counts = { text: 0, multiple: 0, slider: 0 };
     if (!questions || !Array.isArray(questions)) return counts;

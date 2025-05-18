@@ -1,10 +1,27 @@
 // src/frontend/src/components/feature components/QuizSession.jsx
+/**
+ * Quiz session component for managing quiz participation.
+ * 
+ * This component handles the quiz session lobby where participants can join, select teams,
+ * and wait for the host to start the quiz. It provides real-time updates through polling,
+ * participant management, team selection, and session invitations. When the session starts,
+ * it transitions to the QuizSimulator component.
+ */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useNavigate, useParams, Link} from 'react-router-dom';
 import QuizSimulator from './QuizSimulator';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import Select from 'react-select'; // Voor de team selectie
 
+/**
+ * QuizSession component for managing quiz participation.
+ * 
+ * Handles the session lobby interface, including joining/leaving sessions, team selection,
+ * participant list management, and session invitations. For hosts, it provides controls
+ * to invite participants and start the quiz. Uses polling to keep session data updated.
+ * 
+ * @returns {JSX.Element} The rendered quiz session interface
+ */
 function QuizSession() {
     const { code } = useParams();
     const navigate = useNavigate();
@@ -34,6 +51,14 @@ function QuizSession() {
     const pollIntervalRef = useRef(null);
     const isMountedRef = useRef(true);
 
+    /**
+     * Fetches the current user's profile information.
+     * 
+     * Retrieves the user's profile data from the API and updates the currentUser state.
+     * Redirects to the login page if the user is not authenticated.
+     * 
+     * @returns {Promise<Object|null>} The user data object if successful, null otherwise
+     */
     const fetchCurrentUser = useCallback(async () => {
         if (!isMountedRef.current) return null;
         try {
@@ -55,8 +80,16 @@ function QuizSession() {
         return null;
     }, [navigate]);
 
-    // fetchData now takes the current user as an argument
-    // Its dependencies are reduced to only 'code'
+    /**
+     * Fetches session data and participant information.
+     * 
+     * Retrieves the current session details and participant list from the API.
+     * Updates various state variables based on the fetched data, including session info,
+     * participants list, and the user's join status and team selection.
+     * 
+     * @param {Object} userForFetch - The current user object to use for the fetch operation
+     * @returns {Promise<void>} A promise that resolves when the data fetch completes
+     */
     const fetchData = useCallback(async (userForFetch) => {
         if (!userForFetch || !code || !isMountedRef.current) return;
 
@@ -193,6 +226,16 @@ function QuizSession() {
     }, [isLoading, currentUser, sessionInfo, fetchData]); // Dependencies for controlling the poll
 
 
+    /**
+     * Handles the action of joining a team or session.
+     * 
+     * Sends a request to the API to join the session with the selected team number.
+     * Validates team selection for team mode sessions and handles error states.
+     * Updates the UI to reflect the join status after a successful join.
+     * 
+     * @param {Event} e - The form submission event
+     * @returns {Promise<void>} A promise that resolves when the join operation completes
+     */
     const handleJoinTeam = async (e) => {
         e.preventDefault();
         if (!sessionInfo || !currentUser || isJoining || !isMountedRef.current) return;
@@ -230,6 +273,15 @@ function QuizSession() {
         }
     };
 
+    /**
+     * Handles the action of starting the quiz session.
+     * 
+     * Sends a request to the API to start the session. Only available to the host.
+     * On success, stops polling and updates the session info to trigger the transition
+     * to the QuizSimulator component.
+     * 
+     * @returns {Promise<void>} A promise that resolves when the start operation completes
+     */
     const handleStartQuiz = async () => {
         if (!sessionInfo || !currentUser || isStarting || currentUser.id !== sessionInfo.host_id || !isMountedRef.current) return;
         setStartError(''); setIsStarting(true);
@@ -250,6 +302,14 @@ function QuizSession() {
         // No finally setIsStarting(false) here; if successful, component will switch to QuizSimulator
     };
 
+    /**
+     * Copies the session code to the clipboard.
+     * 
+     * Uses the Clipboard API to copy the session code for sharing.
+     * Provides feedback to the user about the success or failure of the operation.
+     * 
+     * @returns {Promise<void>} A promise that resolves when the copy operation completes
+     */
     const copyCodeToClipboard = useCallback(async () => {
         if (!sessionInfo?.code) { setCopySuccess('No Code'); setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 2500); return; }
         if (!navigator.clipboard) { setCopySuccess('No API'); setTimeout(() => { if (isMountedRef.current) setCopySuccess(''); }, 3000); return; }
@@ -258,6 +318,14 @@ function QuizSession() {
     }, [sessionInfo?.code]);
 
     // --- Invite Functions ---
+    /**
+     * Opens the invite modal and loads invitable users.
+     * 
+     * Fetches the list of users who can be invited to the session from the API.
+     * Updates the invitableUsers state with the fetched data and displays the invite modal.
+     * 
+     * @returns {Promise<void>} A promise that resolves when the modal is opened and data is loaded
+     */
     const openInviteModal = async () => {
         if (!isMountedRef.current) return;
         setShowInviteModal(true); setIsLoadingInvitableUsers(true); setInviteError(''); setInviteSearchTerm('');
@@ -278,6 +346,15 @@ function QuizSession() {
         }
     };
 
+    /**
+     * Sends an invitation to a user to join the session.
+     * 
+     * Sends a request to the API to invite the specified user to the session.
+     * Updates the invitedUserIds state to reflect the invitation status in the UI.
+     * 
+     * @param {number} recipientId - The ID of the user to invite
+     * @returns {Promise<void>} A promise that resolves when the invite operation completes
+     */
     const handleSendInvite = async (recipientId) => {
         if (!isMountedRef.current) return;
         setIsSendingInvite(recipientId); setInviteError('');
@@ -322,6 +399,14 @@ function QuizSession() {
     }
 
     const isCurrentUserHost = currentUser?.id === sessionInfo.host_id;
+    /**
+     * Renders the team selection dropdown for team mode sessions.
+     * 
+     * Creates a dropdown menu with options for each team in the session.
+     * Only displayed for non-host users in team mode sessions.
+     * 
+     * @returns {JSX.Element|null} The team selection dropdown or null if not applicable
+     */
     const renderTeamSelection = () => {
         if (!sessionInfo.is_team_mode || isCurrentUserHost) return null;
         const teamOptions = Array.from({ length: sessionInfo.num_teams }, (_, i) => ({ value: String(i + 1), label: `Team ${i + 1}` }));

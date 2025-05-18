@@ -1,7 +1,24 @@
 // src/frontend/src/components/feature components/SessionResults.jsx
+/**
+ * Session results component for displaying quiz session outcomes.
+ * 
+ * This component displays the results of a completed quiz session, including individual
+ * participant scores and team standings if the session was in team mode. It fetches
+ * session data and results from the API, calculates team scores if applicable, and
+ * renders the results in a visually appealing format with rankings.
+ */
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom'; // useSearchParams is niet meer direct nodig hier
 
+/**
+ * SessionResults component for displaying quiz session outcomes.
+ * 
+ * Fetches and displays the results of a completed quiz session, showing individual
+ * participant scores and team standings. Handles loading states, error conditions,
+ * and different session modes (individual vs. team).
+ * 
+ * @returns {JSX.Element} The rendered session results page
+ */
 const SessionResults = () => {
   const { sessionCode } = useParams(); // Haal sessionCode direct uit de URL parameters
   const [results, setResults] = useState([]);
@@ -50,6 +67,15 @@ const SessionResults = () => {
     fetchSessionData();
   }, [sessionCode]); // Dependency is alleen sessionCode
 
+  /**
+   * Calculates team scores based on individual participant results.
+   * 
+   * Processes individual participant scores to calculate team totals, averages,
+   * and member counts. Sorts teams by total score and updates the teamResults state.
+   * 
+   * @param {Array} participantResults - Array of participant result objects
+   * @param {number} numTeams - Number of teams in the session
+   */
   const calculateTeamScores = (participantResults, numTeams) => {
         const teams = {};
         for (let i = 1; i <= numTeams; i++) {
@@ -151,7 +177,7 @@ const SessionResults = () => {
       ) : (
           <p className="text-center text-muted fst-italic">No participants submitted scores for this session, or results are still being tallied.</p>
       )}
-      
+
       <div className="mt-5 text-center d-flex justify-content-center gap-3">
         <button className="btn btn-primary btn-lg" onClick={() => navigate('/home')}>
           <i className="bi bi-house-door me-2"></i>Back to Home

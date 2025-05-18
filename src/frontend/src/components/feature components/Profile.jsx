@@ -1,4 +1,11 @@
 // src/frontend/src/components/feature components/Profile.jsx
+/**
+ * User profile management component.
+ * 
+ * This component allows users to view and edit their profile information, including
+ * username, bio, avatar, and banner settings. It provides a user-friendly interface
+ * for personalizing the user's presence in the application.
+ */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Profile.css';
@@ -17,6 +24,16 @@ const BANNER_IMAGE_DISPLAY_NAMES = {
 };
 const BANNER_IMAGE_EXTENSION = '.jpg';
 
+/**
+ * Generates the file path for a banner image based on its identifier.
+ * 
+ * Validates the identifier against a list of predefined banner image IDs
+ * and returns the path to the corresponding image file. If the identifier
+ * is not valid, falls back to the default banner.
+ * 
+ * @param {string|number} identifier - The identifier of the banner image
+ * @returns {string} The file path to the banner image
+ */
 const getBannerImagePath = (identifier) => {
   const strIdentifier = String(identifier);
   if (!PREDEFINED_BANNER_IMAGE_IDS.includes(strIdentifier)) {
@@ -36,6 +53,15 @@ const predefinedBannerColors = [
 ];
 
 
+/**
+ * Profile component for viewing and editing user profile information.
+ * 
+ * Allows users to update their username, bio, avatar, and banner settings.
+ * Provides a preview of how the profile will appear to other users.
+ * Handles form validation and API communication for saving profile changes.
+ * 
+ * @returns {JSX.Element} The rendered profile management page
+ */
 function Profile() {
   const [profileData, setProfileData] = useState({
     username: '',
@@ -59,6 +85,13 @@ function Profile() {
     profileData.banner_type === 'color' ? profileData.banner_value : '#6c757d'
   );
 
+  /**
+   * Effect hook to fetch the user's profile data when component mounts.
+   * 
+   * Retrieves the user's profile information from the API, including username,
+   * bio, avatar, banner settings, and follower counts. Handles validation of
+   * banner settings and redirects to login if the user is not authenticated.
+   */
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -103,6 +136,12 @@ function Profile() {
     fetchProfile();
   }, [navigate]);
 
+  /**
+   * Effect hook to update banner state when profile data changes.
+   * 
+   * Synchronizes the current banner type and value with the profile data,
+   * and updates the custom color state if the banner type is 'color'.
+   */
   useEffect(() => {
     setCurrentBannerType(profileData.banner_type);
     setCurrentBannerValue(profileData.banner_value);
@@ -147,6 +186,16 @@ function Profile() {
     }
   };
 
+  /**
+   * Handles the submission of the profile edit form.
+   * 
+   * Validates the form inputs, confirms username changes with the user,
+   * and prepares the data for saving. Performs client-side validation
+   * of banner settings before proceeding with the API request.
+   * 
+   * @param {Event} e - The form submission event
+   * @returns {Promise<void>} A promise that resolves when the validation completes
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(''); setSuccess('');
@@ -223,6 +272,14 @@ function Profile() {
     }
   };
 
+  /**
+   * Formats the user's registration date into a human-readable string.
+   * 
+   * Converts the registration date from the profile data into a localized date string.
+   * Handles cases where the date is missing or invalid.
+   * 
+   * @returns {string} The formatted registration date or an appropriate message if unavailable
+   */
   const formatRegistrationDate = () => {
     if (!profileData.registeredAt) return 'Not available';
     const date = new Date(profileData.registeredAt);

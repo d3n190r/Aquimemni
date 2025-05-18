@@ -1,7 +1,23 @@
 // frontend/src/components/feature components/QuizMaker.jsx
+/**
+ * Quiz maker component for creating and editing quizzes.
+ * 
+ * This component provides a form interface for users to create new quizzes or edit existing ones.
+ * It supports multiple question types (text input, multiple choice, and slider), allows for
+ * configuration of question options, and handles form validation and submission to the backend.
+ */
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
+/**
+ * QuizMaker component for creating and editing quizzes.
+ * 
+ * Manages the state for quiz data, handles form validation, and communicates with the backend
+ * to save quiz information. Supports different question types and provides a user-friendly
+ * interface for quiz creation and editing.
+ * 
+ * @returns {JSX.Element} The rendered quiz maker form
+ */
 function QuizMaker() {
   const { state } = useLocation();
   const [quizData, setQuizData] = useState({
@@ -30,7 +46,15 @@ function QuizMaker() {
     }
   }, [state]);
 
-  // Function to get initial state based on question type
+  /**
+   * Creates the initial state for a new question based on its type.
+   * 
+   * Generates the appropriate default values and structure for each question type
+   * (multiple choice, slider, or text input) to ensure the form fields are properly initialized.
+   * 
+   * @param {string} type - The type of question to create ('multiple_choice', 'slider', or 'text_input')
+   * @returns {Object} An object with the initial state for the specified question type
+   */
   const getInitialQuestionState = (type) => {
     const base = { type, text: '' };
     switch(type) {
@@ -46,7 +70,14 @@ function QuizMaker() {
     }
   };
 
-  // Function to add a new question of a specific type
+  /**
+   * Adds a new question of the specified type to the quiz.
+   * 
+   * Creates a new question with default values based on the question type
+   * and adds it to the quiz's questions array.
+   * 
+   * @param {string} type - The type of question to add ('multiple_choice', 'slider', or 'text_input')
+   */
   const addQuestion = (type) => {
     setQuizData(prev => ({
       ...prev,
@@ -54,7 +85,15 @@ function QuizMaker() {
     }));
   };
 
-  // Function to handle changing the type of an existing question
+  /**
+   * Handles changing the type of an existing question.
+   * 
+   * Replaces the current question with a new question of the specified type,
+   * resetting all type-specific fields while maintaining the question's position.
+   * 
+   * @param {number} qIndex - The index of the question to change
+   * @param {string} newType - The new question type to set
+   */
   const handleQuestionTypeChange = (qIndex, newType) => {
     setQuizData(prev => {
       const updatedQuestions = [...prev.questions];
@@ -64,7 +103,16 @@ function QuizMaker() {
     });
   };
 
-  // Function to validate a single question
+  /**
+   * Validates a single question for completeness and correctness.
+   * 
+   * Performs type-specific validation on the question, checking for required fields,
+   * valid ranges, and other constraints based on the question type.
+   * 
+   * @param {Object} question - The question object to validate
+   * @param {number} index - The index of the question in the quiz
+   * @returns {Array} An array of error messages, empty if the question is valid
+   */
   const validateQuestion = (question, index) => {
     const errors = [];
     const questionNumber = index + 1;
@@ -130,7 +178,16 @@ function QuizMaker() {
     return errors;
   };
 
-  // Handle form submission (Create or Update)
+  /**
+   * Handles the form submission for creating or updating a quiz.
+   * 
+   * Validates the entire form, prepares the data for the API, sends the request,
+   * and handles success or error responses. Prevents multiple submissions and
+   * provides feedback to the user throughout the process.
+   * 
+   * @param {Event} e - The form submission event
+   * @returns {Promise<void>} A promise that resolves when the submission process completes
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     // 1. Prevent clicks if already submitting
@@ -250,7 +307,16 @@ function QuizMaker() {
   };
 
 
-  // Function to update a specific field of a question
+  /**
+   * Updates a specific field of a question.
+   * 
+   * Modifies a single field in a question while preserving the rest of the question's data.
+   * Handles special cases for numeric fields.
+   * 
+   * @param {number} qIndex - The index of the question to update
+   * @param {string} field - The name of the field to update
+   * @param {any} value - The new value for the field
+   */
   const updateQuestion = (qIndex, field, value) => {
     setQuizData(prev => {
       const updatedQuestions = [...prev.questions];
@@ -266,7 +332,17 @@ function QuizMaker() {
     });
   };
 
-  // Function to update a specific field of an option within a multiple choice question
+  /**
+   * Updates a specific field of an option within a multiple choice question.
+   * 
+   * Modifies a single field in an option while preserving the rest of the option's data
+   * and the structure of the parent question.
+   * 
+   * @param {number} qIndex - The index of the question containing the option
+   * @param {number} oIndex - The index of the option to update
+   * @param {string} field - The name of the field to update
+   * @param {any} value - The new value for the field
+   */
   const updateOption = (qIndex, oIndex, field, value) => {
     setQuizData(prev => {
       const updatedQuestions = [...prev.questions];
@@ -277,7 +353,14 @@ function QuizMaker() {
     });
   };
 
-  // Function to add a new option to a multiple choice question
+  /**
+   * Adds a new option to a multiple choice question.
+   * 
+   * Creates a new option with default values and adds it to the specified
+   * multiple choice question's options array.
+   * 
+   * @param {number} qIndex - The index of the question to add the option to
+   */
   const addOption = (qIndex) => {
     setQuizData(prev => {
       const updatedQuestions = [...prev.questions];
@@ -293,7 +376,14 @@ function QuizMaker() {
     });
   };
 
-  // Function to delete an option from a multiple choice question
+  /**
+   * Deletes an option from a multiple choice question.
+   * 
+   * Removes the specified option from the question's options array.
+   * 
+   * @param {number} qIndex - The index of the question containing the option
+   * @param {number} oIndex - The index of the option to delete
+   */
   const deleteOption = (qIndex, oIndex) => {
     setQuizData(prev => {
       const updatedQuestions = [...prev.questions];
@@ -302,7 +392,13 @@ function QuizMaker() {
     });
   };
 
-  // Function to delete a question
+  /**
+   * Deletes a question from the quiz.
+   * 
+   * Removes the specified question from the quiz's questions array.
+   * 
+   * @param {number} qIndex - The index of the question to delete
+   */
   const deleteQuestion = (qIndex) => {
     setQuizData(prev => ({
       ...prev,

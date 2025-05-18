@@ -1,11 +1,26 @@
 // src/frontend/src/components/Home components/Main.jsx
+/**
+ * Main content components for the home page.
+ * 
+ * This file contains various components that make up the main content area of the home page,
+ * including sections for joining sessions, starting new quiz sessions, displaying how the
+ * application works, and showing recent activity. These components are combined in the Main
+ * component to create the complete home page content.
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Select from 'react-select';
 
 // --- Helper Components ---
 
-// Join Session Component
+/**
+ * Component for joining an existing quiz session.
+ * 
+ * Provides a form for users to enter a session code and join an active quiz session.
+ * Validates the session code and navigates to the session page if valid.
+ * 
+ * @returns {JSX.Element} The rendered join session section
+ */
 export const JoinSessionSection = () => {
     const navigate = useNavigate();
     const [sessionCode, setSessionCode] = useState('');
@@ -76,7 +91,14 @@ export const JoinSessionSection = () => {
     );
 };
 
-// Start/Host Session Component
+/**
+ * Component for starting a new quiz session as a host.
+ * 
+ * Allows users to select one of their quizzes, configure team settings,
+ * and create a new session. Handles quiz preselection from navigation state.
+ * 
+ * @returns {JSX.Element} The rendered start quiz section
+ */
 export const StartQuizSection = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -272,6 +294,14 @@ export const StartQuizSection = () => {
 };
 
 // --- How It Works Component ---
+/**
+ * Component that explains how the quiz sessions work.
+ * 
+ * Provides a step-by-step guide on how to host, share, join, and play
+ * quiz sessions in the application.
+ * 
+ * @returns {JSX.Element} The rendered how-it-works section
+ */
 export const HowItWorksSection = () => (
     <div className="col-12 mb-4">
         <div className="card border-light-subtle shadow-sm">
@@ -331,6 +361,14 @@ export const HowItWorksSection = () => (
 );
 
 // --- Activity Feed Component ---
+/**
+ * Component that displays recent user activity.
+ * 
+ * Shows a list of recent activities such as hosted games, created quizzes,
+ * and joined sessions. Displays a placeholder message when no activity exists.
+ * 
+ * @returns {JSX.Element} The rendered activity section
+ */
 export const ActivitySection = () => {
     const recentActivities = [];
     const navigate = useNavigate();
@@ -378,6 +416,16 @@ export const ActivitySection = () => {
 
 
 // --- Main Component ---
+/**
+ * Main content component that combines all sections for the home page.
+ * 
+ * Assembles the JoinSessionSection, StartQuizSection, HowItWorksSection,
+ * and ActivitySection components into a complete layout for the home page.
+ * 
+ * @param {Object} props - Component properties
+ * @param {React.ReactNode} props.children - Optional child components to render
+ * @returns {JSX.Element} The rendered main content area
+ */
 export const Main = ({ children }) => (
     <main className="px-md-4 py-3">
         <div className="container-fluid">
